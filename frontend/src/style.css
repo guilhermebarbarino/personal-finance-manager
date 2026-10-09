@@ -33,3 +33,77 @@
 }
 
 .payment-status{display:inline-block;padding:5px 9px;border-radius:6px;font-size:12px;font-weight:700}.payment-status.paid{background:#e9f7f1;color:#1b966d}.payment-status.pending{background:#fff1df;color:#9b6210}.payment-status.unknown{background:#f2f5f9;color:#718094}
+
+
+/* Mobile-first refinements: preserve desktop layouts and make controls touch friendly. */
+html{overflow-x:hidden}
+body{min-width:320px}
+.app,.main,.panel,.analytics-page{min-width:0}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #6fb4e4;outline-offset:2px}
+.kpi strong{overflow-wrap:anywhere}
+@media(max-width:760px){
+ .app{display:block}
+ .sidebar{position:sticky;top:0;z-index:2;width:100%;padding:12px 16px 10px;box-shadow:0 4px 18px #091d3420}
+ .sidebar .logo{font-size:17px}
+ .sidebar nav{display:flex;gap:8px;margin-top:12px;overflow-x:auto;padding-bottom:3px;scrollbar-width:thin}
+ .sidebar nav button{min-height:44px;min-width:max-content;flex-shrink:0;white-space:nowrap;font-size:13px;padding:10px 12px}
+ .sidebar .side-foot{display:none}
+ .main{padding:18px 14px 35px;width:100%}
+ .top{min-height:44px}
+ .ghost{min-height:44px;padding:8px 10px}
+ .heading{margin:18px 0 20px}
+ .heading h1{font-size:clamp(24px,7vw,30px);line-height:1.2}
+ .heading p{line-height:1.5}
+ .controls{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;margin-top:18px}
+ .controls input,.controls .primary{width:100%;min-height:48px;max-width:100%}
+ .kpis{grid-template-columns:1fr;gap:12px}
+ .kpi{padding:18px}
+ .kpi strong{font-size:clamp(22px,6vw,28px);margin:12px 0 5px}
+ .panel{padding:16px;border-radius:12px}
+ .panel-heading{align-items:flex-start;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+ .panel-heading h2{line-height:1.35}
+ .overview-links,.analysis-summary,.category-layout{grid-template-columns:1fr}
+ .overview-link{padding:18px;min-height:124px}
+ .analytics-page{gap:14px}
+ .analysis-summary{gap:10px}
+ .analysis-summary>div{padding:16px}
+ .analysis-summary strong{font-size:clamp(18px,5vw,22px)}
+ .category-layout{gap:10px}
+ .category-layout .chart-area{height:230px}
+ .analytics-chart{height:250px}
+ .category-row{gap:8px;flex-wrap:wrap}
+ .category-row strong{margin-left:auto}
+ .entries{padding:16px}
+ .entries .table-wrap{overflow:visible}
+ .entries table,.entries tbody{display:block;width:100%}
+ .entries thead{display:none}
+ .entries tr{display:block;border:1px solid #e6ebf1;border-radius:12px;background:#fff;margin-bottom:12px;padding:10px 14px}
+ .entries tbody tr td{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid #f0f3f7;white-space:normal;overflow-wrap:anywhere;text-align:right;min-width:0}
+ .entries tbody tr td:last-child{border-bottom:0}
+ .entries tbody tr td::before{content:attr(data-label);font-size:11px;letter-spacing:.2px;font-weight:700;color:#8794a6;text-align:left;flex:0 0 82px}
+ .entries tbody tr td.description{font-size:15px}
+ .entries tbody tr td.empty{display:block;text-align:center;padding:22px 8px}
+ .entries tbody tr td.empty::before{display:none}
+ .entries .actions{justify-content:flex-end;gap:8px}
+ .entries .actions button{min-width:44px;min-height:44px;display:grid;place-items:center;border:1px solid #e6ebf1;border-radius:8px}
+ .modal-back{align-items:flex-end;padding:0}
+ .modal{width:100%;max-width:none;max-height:calc(100dvh - 12px);overflow-y:auto;overscroll-behavior:contain;border-radius:18px 18px 0 0;padding:20px 18px max(18px,env(safe-area-inset-bottom));}
+ .modal-head{align-items:center;margin-bottom:16px}
+ .modal-head .icon-btn{min-height:44px;min-width:44px;display:grid;place-items:center}
+ .two{display:flex;flex-direction:column;gap:0}
+ .field{margin-bottom:14px}
+ .field input,.field select{width:100%;min-height:48px;font-size:16px}
+ .modal-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+ .modal-actions button{min-height:48px;padding:10px}
+ .login-wrap{padding:15px;min-height:100dvh}
+ .login-card{padding:26px 22px}
+ .login-card input{font-size:16px;min-height:48px}
+ .login-card h1{margin-top:25px}
+}
+@media(max-width:380px){
+ .main{padding-left:10px;padding-right:10px}
+ .sidebar{padding-left:10px;padding-right:10px}
+ .entries tbody tr td::before{flex-basis:72px}
+ .analytics-chart{height:235px}
+ .modal-actions{grid-template-columns:1fr}
+}
