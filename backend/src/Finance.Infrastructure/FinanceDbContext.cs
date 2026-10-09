@@ -8,7 +8,7 @@ public sealed class FinanceDbContext(DbContextOptions<FinanceDbContext> options)
     public DbSet<AdminAccount> AdminAccounts => Set<AdminAccount>();
     protected override void OnModelCreating(ModelBuilder model)
     {
-        model.Entity<Transaction>(e => {e.HasKey(x=>x.Id); e.Property(x=>x.Description).HasMaxLength(150).IsRequired(); e.Property(x=>x.Category).HasMaxLength(60).IsRequired(); e.Property(x=>x.Amount).HasPrecision(14,2); e.Property(x=>x.Type).HasConversion<string>().HasMaxLength(20); e.HasIndex(x=>x.Date);});
+        model.Entity<Transaction>(e => {e.HasKey(x=>x.Id); e.Property(x=>x.Description).HasMaxLength(150).IsRequired(); e.Property(x=>x.Category).HasMaxLength(60).IsRequired(); e.Property(x=>x.Amount).HasPrecision(14,2); e.Property(x=>x.IsPaid).HasColumnName("IsPaid"); e.Property(x=>x.Type).HasConversion<string>().HasMaxLength(20); e.HasIndex(x=>x.Date);});
         model.Entity<AdminAccount>(e => {e.HasKey(x=>x.Id); e.Property(x=>x.Email).HasMaxLength(320).IsRequired(); e.HasIndex(x=>x.Email).IsUnique(); e.Property(x=>x.PasswordHash).IsRequired();});
     }
 }
