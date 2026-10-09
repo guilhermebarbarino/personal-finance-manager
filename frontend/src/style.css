@@ -157,3 +157,25 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{ou
   .entries tbody tr td[data-label="Descrição"]{font-size:14px}
   .entries tbody tr td[data-label="Valor"]{font-size:13px}
 }
+
+/* Keep month picker and CTA from overlapping on narrow devices. */
+@media (max-width: 760px) {
+  .heading .controls {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+    width: 100%;
+  }
+  .heading .controls input,
+  .heading .controls .primary {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    min-height: 44px;
+  }
+  .heading .controls .primary {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    line-height: 1.3;
+  }
+}
