@@ -1,7 +1,7 @@
 using Finance.Domain;
 namespace Finance.Application;
 public record TransactionInput(string Description, decimal Amount, DateOnly Date, string Type, string Category, bool? IsPaid = null);
-public record TransactionOutput(Guid Id, string Description, decimal Amount, DateOnly Date, string Type, string Category);
+public record TransactionOutput(Guid Id, string Description, decimal Amount, DateOnly Date, string Type, string Category, bool? IsPaid);
 public record MonthlySummary(int Month, decimal Income, decimal Expenses, decimal Balance);
 public record DashboardOutput(int Year, decimal Income, decimal Expenses, decimal Balance, IReadOnlyList<MonthlySummary> Months);
 public interface ITransactionRepository
