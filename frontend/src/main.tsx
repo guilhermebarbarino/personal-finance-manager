@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { AreaChart, Area, BarChart, Bar, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis, Legend } from 'recharts';
 import { Wallet, Plus, LogOut, TrendingUp, TrendingDown, Scale, Pencil, Trash2, X } from 'lucide-react';
 import './style.css';
 import { AnalyticsPage } from './AnalyticsPage';
