@@ -1,37 +1,97 @@
-name: Deploy frontend to GitHub Pages
+name: CI/CD - Finance Manager
+
 on:
+  pull_request:
+    branches: [main]
   push:
     branches: [main]
-    paths: ["frontend/**", ".github/workflows/pages.yml"]
   workflow_dispatch:
+
 permissions:
   contents: read
-  pages: write
-  id-token: write
+
 concurrency:
-  group: pages
+  group: finance-pipeline-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+
 jobs:
+  backend:
+    name: Backend - Build and Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Restore
+        run: dotnet restore backend/src/Finance.Api/Finance.Api.csproj
+      - name: Build
+        run: dotnet build backend/src/Finance.Api/Finance.Api.csproj --no-restore --configuration Release --warnaserror
+      # Add dotnet test when the repository includes an automated test project.
+
+  frontend:
+    name: Frontend - TypeScript and Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install locked dependencies
+        working-directory: frontend
+        run: npm ci
+      - name: TypeScript check and production build
+        working-directory: frontend
+        env:
+          GITHUB_PAGES_BASE: /${{ github.event.repository.name }}/
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
+        run: npm run build
+      - name: Upload verified frontend
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist
+          if-no-files-found: error
+
   deploy:
+    name: Deploy - GitHub Pages
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: [backend, frontend]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-      - run: npm install
-        working-directory: frontend
-      - run: npm run build
-        working-directory: frontend
+      - name: Check API URL configuration
         env:
           VITE_API_URL: ${{ vars.VITE_API_URL }}
-          GITHUB_PAGES_BASE: /${{ github.event.repository.name }}/
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
+        run: |
+          if [[ ! "$VITE_API_URL" =~ ^https:// ]]; then
+            echo "::error::Configure repository Actions variable VITE_API_URL with an HTTPS API origin."
+            exit 1
+          fi
+      - name: Download verified frontend
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
         with:
           path: frontend/dist
-      - id: deployment
+      - name: Deploy Pages
+        id: deployment
         uses: actions/deploy-pages@v4
