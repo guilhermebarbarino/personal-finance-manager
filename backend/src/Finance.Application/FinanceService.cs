@@ -1,7 +1,7 @@
 using Finance.Domain;
 namespace Finance.Application;
-public record TransactionInput(string Description, decimal Amount, DateOnly Date, string Type, string Category);
-public record TransactionOutput(Guid Id, string Description, decimal Amount, DateOnly Date, string Type, string Category);
+public record TransactionInput(string Description, decimal Amount, DateOnly Date, string Type, string Category, bool? IsPaid = null);
+public record TransactionOutput(Guid Id, string Description, decimal Amount, DateOnly Date, string Type, string Category, bool? IsPaid);
 public record MonthlySummary(int Month, decimal Income, decimal Expenses, decimal Balance);
 public record DashboardOutput(int Year, decimal Income, decimal Expenses, decimal Balance, IReadOnlyList<MonthlySummary> Months);
 public interface ITransactionRepository
@@ -22,13 +22,13 @@ public sealed class FinanceService(ITransactionRepository repository)
     }
     public async Task<TransactionOutput> CreateAsync(TransactionInput input, CancellationToken ct)
     {
-        var t = new Transaction(input.Description, input.Amount, input.Date, ParseType(input.Type), input.Category);
+        var t = new Transaction(input.Description, input.Amount, input.Date, ParseType(input.Type), input.Category, input.IsPaid);
         await repository.AddAsync(t, ct); await repository.SaveAsync(ct); return Map(t);
     }
     public async Task<TransactionOutput?> UpdateAsync(Guid id, TransactionInput input, CancellationToken ct)
     {
         var t = await repository.GetByIdAsync(id, ct); if (t is null) return null;
-        t.Update(input.Description, input.Amount, input.Date, ParseType(input.Type), input.Category);
+        t.Update(input.Description, input.Amount, input.Date, ParseType(input.Type), input.Category, input.IsPaid);
         await repository.SaveAsync(ct); return Map(t);
     }
     public async Task<bool> DeleteAsync(Guid id, CancellationToken ct)
@@ -55,5 +55,5 @@ public sealed class FinanceService(ITransactionRepository repository)
     private static TransactionType ParseType(string type) => type?.ToLowerInvariant() switch {
         "income" => TransactionType.Income, "expense" => TransactionType.Expense, _ => throw new ArgumentException("Tipo deve ser income ou expense.")
     };
-    private static TransactionOutput Map(Transaction t) => new(t.Id, t.Description, t.Amount, t.Date, t.Type == TransactionType.Income ? "income" : "expense", t.Category);
+    private static TransactionOutput Map(Transaction t) => new(t.Id, t.Description, t.Amount, t.Date, t.Type == TransactionType.Income ? "income" : "expense", t.Category, t.IsPaid);
 }
