@@ -347,3 +347,36 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{ou
 /* Password recovery link and feedback on login screens. */
 .login-forgot-link{display:block;margin:11px 0 0 auto;padding:9px 2px;min-height:44px;border:0;background:transparent;color:#247bb5;font-weight:700;font-size:13px;text-decoration:underline;text-underline-offset:3px}
 .login-forgot-link:hover{color:#115a92}
+
+
+/* iOS Safari login viewport fix: never center tall content into a clipped viewport. */
+@media(max-width:760px){
+ .login-wrap{
+   height:auto;
+   min-height:100vh;
+   min-height:100dvh;
+   display:block;
+   overflow:visible;
+   padding:24px 14px max(28px,env(safe-area-inset-bottom));
+ }
+ .login-shell{width:100%;max-width:410px;margin:0 auto}
+ .login-brand{margin:0 0 19px}
+ .login-brand svg{width:34px;height:34px;margin-bottom:6px}
+ .login-brand-name{font-size:24px}
+ .login-brand-tagline{font-size:9px;letter-spacing:1.6px;margin-top:8px}
+ .login-card{padding:23px 20px 21px;border-radius:20px}
+ .login-card h1{font-size:25px}
+ .login-card p{margin:9px 0 15px;font-size:13px;line-height:1.45}
+ .login-card label{margin:10px 0;gap:6px}
+ .login-card .login-input-wrap input{height:46px;min-height:46px}
+ .login-submit{margin-top:12px;min-height:46px}
+ .login-forgot-link{margin-top:5px}
+ .login-switch-row{margin-top:8px}
+ .login-illustration{top:85px;height:120px;width:175px}
+}
+@media(max-width:380px){
+ .login-wrap{padding-inline:12px;padding-top:18px}
+ .login-card{padding:21px 17px 19px}
+ .login-brand{margin-bottom:14px}
+ .login-card h1{font-size:23px}
+}
