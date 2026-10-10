@@ -57,7 +57,7 @@ function App(){
   const response=await fetch(`${API}/api/auth/forgot-password`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email})});
   if(!response.ok)throw new Error('Não foi possível solicitar a recuperação agora.');
   setResetSent(true);
- }catch(e){setError((e as Error).message);}finally{setBusy(false);}};
+ }catch(e){setError(e instanceof TypeError?'Não foi possível conectar ao servidor. Tente novamente em instantes.':(e as Error).message);}finally{setBusy(false);}};
  const resetPassword=async(e:React.FormEvent)=>{e.preventDefault();setBusy(true);setError('');try{
   const response=await fetch(`${API}/api/auth/reset-password`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:resetToken,newPassword:password})});
   if(!response.ok){const detail=await response.json().catch(()=>({}));throw new Error(detail.error||'Link inválido ou expirado.');}
@@ -78,7 +78,7 @@ function App(){
  const currentIncome=rows.filter(x=>x.type==='income').reduce((a,x)=>a+x.amount,0);
  const currentExpense=rows.filter(x=>x.type==='expense').reduce((a,x)=>a+x.amount,0);
  const series=dash?.months.map(m=>({...m,name:months[m.month-1]}))||[];
- if(!token)return <div className="login-wrap"><form className="login-card" onSubmit={resetToken?resetPassword:forgotMode?forgotPassword:registerMode?register:login}>
+ if(!token)return <div className="login-wrap"><form className={`login-card ${forgotMode||resetToken?"auth-recovery":""}`} onSubmit={resetToken?resetPassword:forgotMode?forgotPassword:registerMode?register:login}>
   <div className="logo login-logo"><Wallet size={22}/> Meu Financeiro</div>
   <h1>{resetToken?'Redefinir senha':forgotMode?'Recuperar senha':registerMode?'Criar conta':'Acesse sua conta'}</h1>
   <p>{resetToken?'Defina uma nova senha para sua conta.':forgotMode?'Informe seu e-mail para receber o link de recuperação.':registerMode?'Cadastre uma conta para ter seu próprio painel financeiro.':'Entre com seu e-mail e senha para gerenciar suas finanças.'}</p>
