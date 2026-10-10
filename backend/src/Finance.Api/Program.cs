@@ -67,7 +67,9 @@ app.MapPost("/api/auth/register", async (RegisterRequest input, FinanceDbContext
         return Results.BadRequest(new {error="A senha deve conter entre 12 e 128 caracteres."});
     if (await db.AdminAccounts.AnyAsync(x=>x.Email==email,ct))
         return Results.Conflict(new {error="Já existe uma conta com este e-mail."});
-    var account = new AdminAccount { Email=email };
+    var displayName=input.DisplayName?.Trim();
+    if (displayName?.Length > 100) return Results.BadRequest(new {error="O nome deve ter até 100 caracteres."});
+    var account = new AdminAccount { Email=email, DisplayName=string.IsNullOrWhiteSpace(displayName)?null:displayName };
     account.PasswordHash=hasher.HashPassword(account,input.Password);
     db.AdminAccounts.Add(account);
     try {await db.SaveChangesAsync(ct);}
@@ -75,6 +77,23 @@ app.MapPost("/api/auth/register", async (RegisterRequest input, FinanceDbContext
     return Results.Created("/api/auth/login",new {message="Conta criada. Faça login para continuar."});
 }).RequireRateLimiting("register");
 var auth = app.MapGroup("/api").RequireAuthorization();
+auth.MapGet("/me", async (ClaimsPrincipal principal, FinanceDbContext db, CancellationToken ct) => {
+    if (!Guid.TryParse(principal.FindFirstValue(JwtRegisteredClaimNames.Sub), out var userId)) return Results.Unauthorized();
+    var account=await db.AdminAccounts.AsNoTracking().Where(x=>x.Id==userId)
+        .Select(x=>new {x.Email,x.DisplayName}).SingleOrDefaultAsync(ct);
+    return account is null ? Results.Unauthorized() : Results.Ok(new {email=account.Email,displayName=account.DisplayName});
+});
+auth.MapPut("/me", async (UpdateProfileRequest input, ClaimsPrincipal principal, FinanceDbContext db, CancellationToken ct) => {
+    if (!Guid.TryParse(principal.FindFirstValue(JwtRegisteredClaimNames.Sub), out var userId)) return Results.Unauthorized();
+    var name=input.DisplayName?.Trim();
+    if (string.IsNullOrWhiteSpace(name) || name.Length>100)
+        return Results.BadRequest(new {error="Informe um nome entre 1 e 100 caracteres."});
+    var account=await db.AdminAccounts.SingleOrDefaultAsync(x=>x.Id==userId,ct);
+    if (account is null) return Results.Unauthorized();
+    account.DisplayName=name;
+    await db.SaveChangesAsync(ct);
+    return Results.Ok(new {displayName=account.DisplayName,email=account.Email});
+});
 auth.MapGet("/transactions", async (string? month, FinanceService svc, CancellationToken ct)=> {
     if (!DateOnly.TryParseExact((month ?? DateTime.UtcNow.ToString("yyyy-MM"))+"-01", "yyyy-MM-dd", out var date)) return Results.BadRequest(new {error="Formato de mês inválido. Use yyyy-MM."});
     try { return Results.Ok(await svc.ListAsync(date.Year,date.Month,ct)); } catch (ArgumentException e) {return Results.BadRequest(new {error=e.Message});}
@@ -91,4 +110,5 @@ auth.MapGet("/dashboard",async(int? year,FinanceService svc,CancellationToken ct
 });
 app.Run();
 record LoginRequest(string Email, string Password);
-record RegisterRequest(string Email, string Password);
+record RegisterRequest(string Email, string Password, string? DisplayName = null);
+record UpdateProfileRequest(string DisplayName);
