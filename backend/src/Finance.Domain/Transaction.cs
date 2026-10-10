@@ -3,6 +3,13 @@ public enum TransactionType { Income, Expense }
 public sealed class Transaction
 {
     public Guid Id { get; private set; } = Guid.NewGuid();
+    public Guid UserId { get; private set; }
+    public void AssignOwner(Guid userId)
+    {
+        if (userId == Guid.Empty) throw new ArgumentException("Usuário inválido.");
+        if (UserId != Guid.Empty && UserId != userId) throw new InvalidOperationException("Proprietário não pode ser alterado.");
+        UserId = userId;
+    }
     public string Description { get; private set; } = "";
     public decimal Amount { get; private set; }
     public DateOnly Date { get; private set; }
