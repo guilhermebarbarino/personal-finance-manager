@@ -452,3 +452,12 @@ html,body,#root{width:100%;max-width:100%}
  .login-wrap .login-card.auth-recovery{padding:26px 22px}
  .login-wrap .login-card.auth-recovery h1{margin-top:25px}
 }
+
+
+/* Authenticated password change: visible on mobile and desktop. */
+.sidebar-password-action{margin-top:16px;background:transparent;color:#c3d4e6;text-align:left;padding:12px 15px;border:1px solid #38506a;border-radius:9px;font-size:13px;font-weight:700}
+.sidebar-password-action:hover{background:#263953;color:white}
+.password-change-hint{font-size:12px;color:#718094;line-height:1.5;margin:4px 0 12px}
+@media(max-width:760px){
+ .sidebar-password-action{display:block;width:100%;margin-top:8px;text-align:center;min-height:44px}
+}
