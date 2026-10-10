@@ -433,3 +433,22 @@ html,body,#root{width:100%;max-width:100%}
 .login-wrap .auth-links .auth-mode-switch{border-left:1px solid #dfe5ec}
 .login-wrap .auth-links .auth-mode-switch:only-child{border-left:0}
 @media(max-width:380px){.login-wrap .auth-links{gap:6px}.login-wrap .auth-links .login-forgot-link,.login-wrap .auth-links .auth-mode-switch{font-size:12px;flex-basis:110px}}
+
+
+/* Recovery uses the same card, field and action rhythm as the stable login. */
+.login-wrap .login-card.auth-recovery h1{margin-top:26px}
+.login-wrap .login-card.auth-recovery p{margin-bottom:23px}
+.login-wrap .login-card.auth-recovery label{margin:15px 0}
+.login-wrap .login-card.auth-recovery .primary.full{margin-top:12px}
+.login-wrap .login-card.auth-recovery .auth-links{width:100%;margin-top:14px;justify-content:center}
+.login-wrap .login-card.auth-recovery .auth-links .auth-mode-switch{
+  flex:0 1 auto;min-width:160px;max-width:100%;
+  margin:0;padding:10px 12px;border:0;
+  font-size:13px;line-height:1.35;text-align:center;
+}
+.login-wrap .login-card.auth-recovery .auth-notice,
+.login-wrap .login-card.auth-recovery .alert{margin:14px 0;padding:12px 14px;font-size:13px;line-height:1.5}
+@media(max-width:760px){
+ .login-wrap .login-card.auth-recovery{padding:26px 22px}
+ .login-wrap .login-card.auth-recovery h1{margin-top:25px}
+}
