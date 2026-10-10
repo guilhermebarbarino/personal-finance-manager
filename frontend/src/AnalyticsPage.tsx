@@ -26,6 +26,7 @@ export function AnalyticsPage({ rows, series, year, selectedMonth }: Props) {
 
   const annualIncome = series.reduce((sum, month) => sum + month.income, 0);
   const annualExpense = series.reduce((sum, month) => sum + month.expenses, 0);
+  const annualBalance = annualIncome - annualExpense;
   const monthLabel = selectedMonth.split('-').reverse().join('/');
   const axisFormat = (n: number) => n >= 1000 || n <= -1000 ? `R$ ${(n / 1000).toFixed(0)} mil` : `R$ ${n}`;
 
@@ -33,7 +34,7 @@ export function AnalyticsPage({ rows, series, year, selectedMonth }: Props) {
     <div className="analysis-summary">
       <div><span>Receitas no ano</span><strong className="green">{brl(annualIncome)}</strong></div>
       <div><span>Despesas no ano</span><strong className="red">{brl(annualExpense)}</strong></div>
-      <div><span>Saldo do ano</span><strong>{brl(annualIncome - annualExpense)}</strong></div>
+      <div><span>Saldo do ano</span><strong className={annualBalance < 0 ? 'red' : 'blue'}>{brl(annualBalance)}</strong></div>
     </div>
     <section className="panel">
       <div className="panel-heading"><div><h2>Despesas por categoria</h2><p>Distribuição dos gastos em {monthLabel}</p></div><span>Mês selecionado</span></div>
