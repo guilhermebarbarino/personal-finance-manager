@@ -123,7 +123,7 @@ export function ImportPage({api,onImported}:{api:Api;onImported:()=>Promise<void
    {useTargetMonth&&<input aria-label="Mês de destino" type="month" min="2000-01" max="2100-12" value={targetMonth} onChange={e=>{setTargetMonth(e.target.value);setItems([]);}}/>}
    <small>Ao alterar o mês de destino, selecione o arquivo novamente. Datas acima do último dia do mês são ajustadas automaticamente.</small>
   </div>
-  <div className="field"><label htmlFor="import-file">Planilha Excel (.xlsx ou .csv)</label><input id="import-file" type="file" accept=".xlsx,.csv" onChange={e=>void readFile(e.target.files?.[0])}/></div>
+  <div className="field"><label htmlFor="import-file">Planilha Excel (.xlsx ou .csv)</label><input id="import-file" type="file" accept=".xlsx,.csv" onChange={e=>{const file=e.target.files?.[0];e.target.value='';void readFile(file);}}/></div>
   <p className="report-hint">Obrigatórios: Descrição, Valor, Data e Tipo. Categoria vazia recebe “Outros”. Pagamento vazio é registrado como não informado (NULL). Nenhuma informação é enviada a terceiros para ler a planilha.</p>
   {filename&&<p className="report-hint">Arquivo: {filename}</p>}
   {!!items.length&&<><div className="import-stats"><strong>{valid.length} pronto(s)</strong><strong>{invalid.length} com problema(s)</strong></div>
