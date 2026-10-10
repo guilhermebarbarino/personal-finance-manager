@@ -234,3 +234,8 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{ou
 @media(min-width:761px){
  .sidebar nav{display:grid}
 }
+
+
+/* Account registration on login screen */
+.auth-mode-switch{display:block;margin:15px auto 0;padding:12px;color:#247bb5;background:transparent;font-size:14px;font-weight:700;text-decoration:underline;text-underline-offset:3px;min-height:44px}
+.auth-notice{margin:12px 0;background:#ecf9f3;color:#176845;border:1px solid #bce8d5;border-radius:8px;padding:12px;font-size:13px}
