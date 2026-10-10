@@ -342,3 +342,8 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{ou
  .login-switch-row .auth-mode-switch{font-size:12px}
 }
 @media(prefers-reduced-motion:reduce){.login-wrap *, .login-wrap *:before,.login-wrap *:after{scroll-behavior:auto;transition:none}}
+
+
+/* Password recovery link and feedback on login screens. */
+.login-forgot-link{display:block;margin:11px 0 0 auto;padding:9px 2px;min-height:44px;border:0;background:transparent;color:#247bb5;font-weight:700;font-size:13px;text-decoration:underline;text-underline-offset:3px}
+.login-forgot-link:hover{color:#115a92}
