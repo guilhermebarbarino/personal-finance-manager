@@ -176,6 +176,23 @@ auth.MapPut("/me", async (UpdateProfileRequest input, ClaimsPrincipal principal,
     await db.SaveChangesAsync(ct);
     return Results.Ok(new {displayName=account.DisplayName,email=account.Email});
 });
+auth.MapPost("/me/change-password", async (ChangePasswordRequest input, ClaimsPrincipal principal, FinanceDbContext db, IPasswordHasher<AdminAccount> hasher, CancellationToken ct) => {
+    if (!Guid.TryParse(principal.FindFirstValue(JwtRegisteredClaimNames.Sub), out var userId)) return Results.Unauthorized();
+    if (string.IsNullOrEmpty(input.NewPassword) || input.NewPassword.Length < 12 || input.NewPassword.Length > 128)
+        return Results.BadRequest(new {error="A nova senha deve conter entre 12 e 128 caracteres."});
+    if (input.NewPassword != input.ConfirmPassword)
+        return Results.BadRequest(new {error="A confirmação não corresponde à nova senha."});
+    var account = await db.AdminAccounts.SingleOrDefaultAsync(x=>x.Id==userId,ct);
+    if (account is null) return Results.Unauthorized();
+    if (hasher.VerifyHashedPassword(account,account.PasswordHash,input.CurrentPassword ?? "") == PasswordVerificationResult.Failed)
+        return Results.BadRequest(new {error="Senha atual incorreta."});
+    if (hasher.VerifyHashedPassword(account,account.PasswordHash,input.NewPassword) != PasswordVerificationResult.Failed)
+        return Results.BadRequest(new {error="Escolha uma senha diferente da atual."});
+    account.PasswordHash=hasher.HashPassword(account,input.NewPassword);
+    account.SessionVersion=Guid.NewGuid();
+    await db.SaveChangesAsync(ct);
+    return Results.Ok(new {message="Senha alterada. Entre novamente."});
+}).RequireRateLimiting("password-reset");
 auth.MapGet("/transactions", async (string? month, FinanceService svc, CancellationToken ct)=> {
     if (!DateOnly.TryParseExact((month ?? DateTime.UtcNow.ToString("yyyy-MM"))+"-01", "yyyy-MM-dd", out var date)) return Results.BadRequest(new {error="Formato de mês inválido. Use yyyy-MM."});
     try { return Results.Ok(await svc.ListAsync(date.Year,date.Month,ct)); } catch (ArgumentException e) {return Results.BadRequest(new {error=e.Message});}
@@ -194,6 +211,7 @@ app.Run();
 record LoginRequest(string Email, string Password);
 record RegisterRequest(string Email, string Password, string? DisplayName = null);
 record UpdateProfileRequest(string DisplayName);
+record ChangePasswordRequest(string CurrentPassword,string NewPassword,string ConfirmPassword);
 
 record ForgotPasswordRequest(string Email);
 record ResetPasswordRequest(string Token,string NewPassword);
