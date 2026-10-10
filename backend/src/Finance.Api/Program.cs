@@ -83,6 +83,17 @@ auth.MapGet("/me", async (ClaimsPrincipal principal, FinanceDbContext db, Cancel
         .Select(x=>new {x.Email,x.DisplayName}).SingleOrDefaultAsync(ct);
     return account is null ? Results.Unauthorized() : Results.Ok(new {email=account.Email,displayName=account.DisplayName});
 });
+auth.MapPut("/me", async (UpdateProfileRequest input, ClaimsPrincipal principal, FinanceDbContext db, CancellationToken ct) => {
+    if (!Guid.TryParse(principal.FindFirstValue(JwtRegisteredClaimNames.Sub), out var userId)) return Results.Unauthorized();
+    var name=input.DisplayName?.Trim();
+    if (string.IsNullOrWhiteSpace(name) || name.Length>100)
+        return Results.BadRequest(new {error="Informe um nome entre 1 e 100 caracteres."});
+    var account=await db.AdminAccounts.SingleOrDefaultAsync(x=>x.Id==userId,ct);
+    if (account is null) return Results.Unauthorized();
+    account.DisplayName=name;
+    await db.SaveChangesAsync(ct);
+    return Results.Ok(new {displayName=account.DisplayName,email=account.Email});
+});
 auth.MapGet("/transactions", async (string? month, FinanceService svc, CancellationToken ct)=> {
     if (!DateOnly.TryParseExact((month ?? DateTime.UtcNow.ToString("yyyy-MM"))+"-01", "yyyy-MM-dd", out var date)) return Results.BadRequest(new {error="Formato de mês inválido. Use yyyy-MM."});
     try { return Results.Ok(await svc.ListAsync(date.Year,date.Month,ct)); } catch (ArgumentException e) {return Results.BadRequest(new {error=e.Message});}
@@ -100,3 +111,4 @@ auth.MapGet("/dashboard",async(int? year,FinanceService svc,CancellationToken ct
 app.Run();
 record LoginRequest(string Email, string Password);
 record RegisterRequest(string Email, string Password, string? DisplayName = null);
+record UpdateProfileRequest(string DisplayName);
