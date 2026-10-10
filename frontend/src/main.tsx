@@ -66,8 +66,8 @@ function App(){
  const series=dash?.months.map(m=>({...m,name:months[m.month-1]}))||[];
  if(!token)return <div className="login-wrap"><form className="login-card" onSubmit={registerMode?register:login}>
  <div className="logo login-logo"><Wallet size={22}/> Meu Financeiro</div>
- <h1>{registerMode?'Criar conta':'Bem-vindo de volta'}</h1>
- <p>{registerMode?'Cadastre uma conta para ter seu próprio painel financeiro.':'Entre com sua conta pessoal para acompanhar suas finanças.'}</p>
+ <h1>{registerMode?'Criar conta':'Acesse sua conta'}</h1>
+ <p>{registerMode?'Cadastre uma conta para ter seu próprio painel financeiro.':'Entre com seu e-mail e senha para gerenciar suas finanças.'}</p>
  <label>Email<input type="email" autoComplete="username" value={email} onChange={e=>setEmail(e.target.value)} required/></label>
  <label>Senha<input type="password" autoComplete={registerMode?'new-password':'current-password'} minLength={registerMode?12:undefined} maxLength={128} value={password} onChange={e=>setPassword(e.target.value)} required/></label>
  {registerMode&&<><label>Como gostaria de ser chamado?<input type="text" autoComplete="given-name" maxLength={100} value={displayName} onChange={e=>setDisplayName(e.target.value)} placeholder="Ex.: Guilherme" required/></label><div className="hint">Use uma senha com pelo menos 12 caracteres.</div></>}
