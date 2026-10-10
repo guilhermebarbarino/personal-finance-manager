@@ -19,6 +19,8 @@ function App(){
  const [token,setToken]=useState<string>(readSession); const [email,setEmail]=useState(''); const [password,setPassword]=useState('');
  const [displayName,setDisplayName]=useState(''); const [profileName,setProfileName]=useState('');
  const [showPassword,setShowPassword]=useState(false);
+ const [resetToken,setResetToken]=useState(()=>new URLSearchParams(window.location.hash.replace(/^#/,'' )).get('reset-token')||'');
+ const [forgotMode,setForgotMode]=useState(false); const [resetSent,setResetSent]=useState(false);
  const [registerMode,setRegisterMode]=useState(false); const [authNotice,setAuthNotice]=useState('');
  const [month,setMonth]=useState(today().slice(0,7)); const [rows,setRows]=useState<Transaction[]>([]);
  const [dash,setDash]=useState<Dashboard|null>(null); const [busy,setBusy]=useState(false); const [error,setError]=useState('');
@@ -51,6 +53,17 @@ function App(){
   if(!r.ok){const detail=await r.json().catch(()=>({}));throw new Error(detail.error||'Não foi possível criar sua conta. Tente novamente.');}
   setPassword('');setDisplayName('');setRegisterMode(false);setAuthNotice('Conta criada com sucesso. Faça login para continuar.');
  }catch(e){setError((e as Error).message);}finally{setBusy(false);}};
+ const forgotPassword=async(e:React.FormEvent)=>{e.preventDefault();setBusy(true);setError('');setAuthNotice('');try{
+  const response=await fetch(`${API}/api/auth/forgot-password`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email})});
+  if(!response.ok)throw new Error('Não foi possível solicitar a recuperação agora.');
+  setResetSent(true);
+ }catch(e){setError((e as Error).message);}finally{setBusy(false);}};
+ const resetPassword=async(e:React.FormEvent)=>{e.preventDefault();setBusy(true);setError('');try{
+  const response=await fetch(`${API}/api/auth/reset-password`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:resetToken,newPassword:password})});
+  if(!response.ok){const detail=await response.json().catch(()=>({}));throw new Error(detail.error||'Link inválido ou expirado.');}
+  window.history.replaceState(null,'',window.location.pathname+window.location.search);
+  setResetToken('');setPassword('');setRegisterMode(false);setForgotMode(false);setAuthNotice('Senha redefinida. Entre com sua nova senha.');
+ }catch(e){setError((e as Error).message);}finally{setBusy(false);}};
  const editProfile=async()=>{const name=window.prompt('Como você gostaria de ser chamado?',profileName);
   if(name===null)return;
   const value=name.trim();if(!value||value.length>100){setError('Informe um nome entre 1 e 100 caracteres.');return;}
@@ -71,17 +84,19 @@ function App(){
  <div className="login-illustration" aria-hidden="true"><span/><span/><span/><span/><svg viewBox="0 0 220 115" preserveAspectRatio="none"><path d="M0 98 C38 85 52 93 80 67 S127 71 153 34 S193 27 220 4"/></svg></div>
  <div className="login-shell">
   <div className="login-brand"><Wallet size={40} strokeWidth={2.25}/><div className="login-brand-name">Meu Financeiro</div><div className="login-brand-tagline">SUAS FINANÇAS EM UM SÓ LUGAR</div></div>
-  <form className="login-card" onSubmit={registerMode?register:login}>
-   <h1>{registerMode?'Criar conta':'Acesse sua conta'}</h1>
-   <p>{registerMode?'Cadastre uma conta para ter seu próprio painel financeiro.':'Entre com seu e-mail e senha para gerenciar suas finanças.'}</p>
-   {registerMode&&<label>Como gostaria de ser chamado?<span className="login-input-wrap"><input type="text" autoComplete="given-name" maxLength={100} value={displayName} onChange={e=>setDisplayName(e.target.value)} placeholder="Seu nome" required/></span></label>}
-   <label>Email<span className="login-input-wrap"><Mail size={18} aria-hidden="true"/><input type="email" autoComplete="username" value={email} onChange={e=>setEmail(e.target.value)} placeholder="seu@email.com" required/></span></label>
-   <label>Senha<span className="login-input-wrap"><LockKeyhole size={18} aria-hidden="true"/><input type={showPassword?'text':'password'} autoComplete={registerMode?'new-password':'current-password'} minLength={registerMode?12:undefined} maxLength={128} value={password} onChange={e=>setPassword(e.target.value)} placeholder="Sua senha" required/><button type="button" className="password-visibility" aria-label={showPassword?'Ocultar senha':'Mostrar senha'} aria-pressed={showPassword} onClick={()=>setShowPassword(v=>!v)}>{showPassword?<EyeOff size={19}/>:<Eye size={19}/>}</button></span></label>
-   {registerMode&&<div className="login-password-note">Use uma senha com pelo menos 12 caracteres.</div>}
+  <form className="login-card" onSubmit={resetToken?resetPassword:forgotMode?forgotPassword:registerMode?register:login}>
+   <h1>{resetToken?'Redefinir senha':forgotMode?'Recuperar senha':registerMode?'Criar conta':'Acesse sua conta'}</h1>
+   <p>{resetToken?'Defina uma senha nova para sua conta.':forgotMode?'Informe seu e-mail e enviaremos um link para redefinição.':registerMode?'Cadastre uma conta para ter seu próprio painel financeiro.':'Entre com seu e-mail e senha para gerenciar suas finanças.'}</p>
+   {registerMode&&!forgotMode&&!resetToken&&<label>Como gostaria de ser chamado?<span className="login-input-wrap"><input type="text" autoComplete="given-name" maxLength={100} value={displayName} onChange={e=>setDisplayName(e.target.value)} placeholder="Seu nome" required/></span></label>}
+   {!resetToken&&<label>Email<span className="login-input-wrap"><Mail size={18} aria-hidden="true"/><input type="email" autoComplete="username" value={email} onChange={e=>setEmail(e.target.value)} placeholder="seu@email.com" required/></span></label>}
+   {!forgotMode&&<label>{resetToken?"Nova senha":"Senha"}<span className="login-input-wrap"><LockKeyhole size={18} aria-hidden="true"/><input type={showPassword?'text':'password'} autoComplete={registerMode?'new-password':'current-password'} minLength={registerMode?12:undefined} maxLength={128} value={password} onChange={e=>setPassword(e.target.value)} placeholder={resetToken?"Nova senha":"Sua senha"} required minLength={resetToken?12:registerMode?12:undefined}/><button type="button" className="password-visibility" aria-label={showPassword?'Ocultar senha':'Mostrar senha'} aria-pressed={showPassword} onClick={()=>setShowPassword(v=>!v)}>{showPassword?<EyeOff size={19}/>:<Eye size={19}/>}</button></span></label>}
+   {(registerMode||resetToken)&&<div className="login-password-note">Use uma senha com pelo menos 12 caracteres.</div>}
    {authNotice&&<div className="auth-notice" role="status">{authNotice}</div>}
    {error&&<div className="alert" role="alert">{error}</div>}
-   <button className="primary full login-submit" disabled={busy}>{busy?'Aguarde...':registerMode?'Criar conta':'Entrar'}<ArrowRight size={19} aria-hidden="true"/></button>
-   <div className="login-switch-row"><button type="button" className="auth-mode-switch" onClick={()=>{setRegisterMode(!registerMode);setShowPassword(false);setError('');setAuthNotice('');setPassword('');}}>{registerMode?'Já tenho uma conta — Entrar':'Criar uma nova conta'}</button></div>
+   {resetSent&&forgotMode&&<div className="auth-notice" role="status">Se a conta existir, você receberá um e-mail com o link de recuperação.</div>}
+   <button className="primary full login-submit" disabled={busy}>{busy?'Aguarde...':resetToken?'Salvar nova senha':forgotMode?'Enviar link':registerMode?'Criar conta':'Entrar'}<ArrowRight size={19} aria-hidden="true"/></button>
+   {!registerMode&&!forgotMode&&!resetToken&&<button type="button" className="login-forgot-link" onClick={()=>{setForgotMode(true);setResetSent(false);setError('');}}>Esqueci minha senha</button>}
+   <div className="login-switch-row"><button type="button" className="auth-mode-switch" onClick={()=>{if(resetToken){window.history.replaceState(null,'',window.location.pathname+window.location.search);setResetToken('');}setRegisterMode(forgotMode||resetToken?false:!registerMode);setForgotMode(false);setResetSent(false);setShowPassword(false);setError('');setAuthNotice('');setPassword('');}}>{registerMode||forgotMode||resetToken?'Voltar para entrar':'Criar uma nova conta'}</button></div>
   </form>
  </div>
  </div>;
