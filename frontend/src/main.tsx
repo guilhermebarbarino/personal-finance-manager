@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { Wallet, Plus, LogOut, TrendingUp, TrendingDown, Scale, Pencil, Trash2, X, Menu, Mail, LockKeyhole, Eye, EyeOff, ArrowRight } from 'lucide-react';
+import { Wallet, Plus, LogOut, TrendingUp, TrendingDown, Scale, Pencil, Trash2, X, Menu, EyeOff, Eye } from 'lucide-react';
 import './style.css';
 import { AnalyticsPage } from './AnalyticsPage';
 import { ReportsPage } from './ReportsPage';
