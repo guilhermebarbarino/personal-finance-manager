@@ -296,3 +296,49 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{ou
 
 /* Center the login/register brand without changing the dashboard sidebar. */
 .login-card .login-logo{width:100%;justify-content:center;text-align:center;gap:11px}
+
+
+/* Login redesign — model 2. Scoped to authentication screen only. */
+.login-wrap{position:relative;isolation:isolate;min-height:100dvh;display:flex;align-items:center;justify-content:center;overflow:hidden;padding:42px 18px;background:linear-gradient(130deg,#f5fdff 0%,#e9f6fd 55%,#eaf4ff 100%)}
+.login-decor{position:absolute;z-index:-1;pointer-events:none;border-radius:50%}
+.login-decor-left{width:390px;height:430px;left:-245px;top:7%;background:radial-gradient(circle,#c3f3e9 0%,#d2f6f0 55%,transparent 72%);opacity:.8}
+.login-decor-right{width:430px;height:450px;right:-240px;bottom:-180px;background:radial-gradient(circle,#bfdffc 0%,#deefff 58%,transparent 75%);opacity:.8}
+.login-illustration{position:absolute;right:max(-48px,calc(50% - 420px));top:17%;height:155px;width:210px;opacity:.24;pointer-events:none;z-index:-1;display:flex;align-items:end;gap:13px}
+.login-illustration span{flex:1;background:#74b3ed;border-radius:9px 9px 0 0;height:27%}
+.login-illustration span:nth-child(2){height:43%}.login-illustration span:nth-child(3){height:65%}.login-illustration span:nth-child(4){height:85%}
+.login-illustration svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible;fill:none;stroke:#228bdd;stroke-width:3}
+.login-shell{width:min(100%,420px);position:relative;z-index:1}
+.login-brand{display:flex;flex-direction:column;align-items:center;text-align:center;color:#12243d;margin-bottom:28px}
+.login-brand svg{color:#21b891;margin-bottom:10px}
+.login-brand-name{font:800 clamp(23px,5vw,29px)/1.2 Manrope,sans-serif;letter-spacing:-.9px}
+.login-brand-tagline{font-size:10px;font-weight:700;letter-spacing:2.4px;color:#71849d;margin-top:12px}
+.login-card{width:100%;padding:32px 28px 30px;border-radius:22px;box-shadow:0 18px 60px #2b61851a;border:1px solid #fff;background:#fff}
+.login-card h1{text-align:center;margin:0;font-size:clamp(24px,5vw,29px);line-height:1.2;letter-spacing:-.9px;color:#14243b}
+.login-card p{text-align:center;margin:11px 0 24px;color:#7a8aa0;line-height:1.5;font-size:13px}
+.login-card label{margin:14px 0;gap:8px;color:#52647d}
+.login-input-wrap{width:100%;position:relative;display:flex;align-items:center}
+.login-input-wrap>svg{position:absolute;left:14px;color:#7d90a8;pointer-events:none;z-index:1}
+.login-card .login-input-wrap input{display:block;width:100%;min-width:0;height:49px;border-radius:11px;padding:11px 44px 11px 43px;font-size:16px}
+.login-card .login-input-wrap:not(:has(>svg)) input{padding-left:14px}
+.login-input-wrap .password-visibility{position:absolute;right:5px;top:50%;transform:translateY(-50%);display:grid;place-items:center;background:transparent;border-radius:8px;color:#7d90a8;min-width:42px;min-height:42px}
+.login-input-wrap .password-visibility:hover{color:#247bb5;background:#f0f5fa}
+.login-submit{width:100%;min-height:49px;margin-top:17px;border-radius:11px;background:linear-gradient(115deg,#1374c5,#238bea);font-size:16px;box-shadow:0 8px 20px #267fc329;gap:10px}
+.login-submit:hover{background:linear-gradient(115deg,#1062a7,#1378d1)}
+.login-switch-row{display:flex;align-items:center;gap:12px;margin-top:22px}
+.login-switch-row:before,.login-switch-row:after{content:"";height:1px;background:#e3eaf2;flex:1}
+.login-switch-row .auth-mode-switch{margin:0;padding:10px 0;min-height:44px;flex-shrink:0;font-size:13px;white-space:nowrap}
+.login-password-note{font-size:12px;color:#718094;line-height:1.4}
+@media(max-width:760px){
+ .login-wrap{padding:26px 16px;align-items:center}
+ .login-shell{max-width:410px}
+ .login-card{padding:29px 23px 25px}
+ .login-brand{margin-bottom:24px}
+ .login-illustration{right:-52px;top:14%}
+}
+@media(max-width:380px){
+ .login-wrap{padding:20px 12px}
+ .login-card{padding:25px 18px 20px}
+ .login-brand-tagline{font-size:9px;letter-spacing:1.8px}
+ .login-switch-row .auth-mode-switch{font-size:12px}
+}
+@media(prefers-reduced-motion:reduce){.login-wrap *, .login-wrap *:before,.login-wrap *:after{scroll-behavior:auto;transition:none}}

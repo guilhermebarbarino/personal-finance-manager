@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { Wallet, Plus, LogOut, TrendingUp, TrendingDown, Scale, Pencil, Trash2, X, Menu } from 'lucide-react';
+import { Wallet, Plus, LogOut, TrendingUp, TrendingDown, Scale, Pencil, Trash2, X, Menu, Mail, LockKeyhole, Eye, EyeOff, ArrowRight } from 'lucide-react';
 import './style.css';
 import { AnalyticsPage } from './AnalyticsPage';
 import { ReportsPage } from './ReportsPage';
@@ -18,6 +18,7 @@ const initial=():Entry=>({description:'',amount:0,date:today(),type:'expense',ca
 function App(){
  const [token,setToken]=useState<string>(readSession); const [email,setEmail]=useState(''); const [password,setPassword]=useState('');
  const [displayName,setDisplayName]=useState(''); const [profileName,setProfileName]=useState('');
+ const [showPassword,setShowPassword]=useState(false);
  const [registerMode,setRegisterMode]=useState(false); const [authNotice,setAuthNotice]=useState('');
  const [month,setMonth]=useState(today().slice(0,7)); const [rows,setRows]=useState<Transaction[]>([]);
  const [dash,setDash]=useState<Dashboard|null>(null); const [busy,setBusy]=useState(false); const [error,setError]=useState('');
@@ -64,19 +65,26 @@ function App(){
  const currentIncome=rows.filter(x=>x.type==='income').reduce((a,x)=>a+x.amount,0);
  const currentExpense=rows.filter(x=>x.type==='expense').reduce((a,x)=>a+x.amount,0);
  const series=dash?.months.map(m=>({...m,name:months[m.month-1]}))||[];
- if(!token)return <div className="login-wrap"><form className="login-card" onSubmit={registerMode?register:login}>
- <div className="logo login-logo"><Wallet size={22}/> Meu Financeiro</div>
- <h1>{registerMode?'Criar conta':'Acesse sua conta'}</h1>
- <p>{registerMode?'Cadastre uma conta para ter seu próprio painel financeiro.':'Entre com seu e-mail e senha para gerenciar suas finanças.'}</p>
- <label>Email<input type="email" autoComplete="username" value={email} onChange={e=>setEmail(e.target.value)} required/></label>
- <label>Senha<input type="password" autoComplete={registerMode?'new-password':'current-password'} minLength={registerMode?12:undefined} maxLength={128} value={password} onChange={e=>setPassword(e.target.value)} required/></label>
- {registerMode&&<><label>Como gostaria de ser chamado?<input type="text" autoComplete="given-name" maxLength={100} value={displayName} onChange={e=>setDisplayName(e.target.value)} placeholder="Ex.: Guilherme" required/></label><div className="hint">Use uma senha com pelo menos 12 caracteres.</div></>}
- {authNotice&&<div className="auth-notice" role="status">{authNotice}</div>}
- {error&&<div className="alert" role="alert">{error}</div>}
- <button className="primary full" disabled={busy}>{busy?'Aguarde...':registerMode?'Criar conta':'Entrar'}</button>
- <button type="button" className="auth-mode-switch" onClick={()=>{setRegisterMode(!registerMode);setError('');setAuthNotice('');setPassword('');}}>{registerMode?'Já tenho uma conta — Entrar':'Criar uma nova conta'}</button>
-
- </form></div>;
+ if(!token)return <div className="login-wrap">
+ <div className="login-decor login-decor-left" aria-hidden="true"/>
+ <div className="login-decor login-decor-right" aria-hidden="true"/>
+ <div className="login-illustration" aria-hidden="true"><span/><span/><span/><span/><svg viewBox="0 0 220 115" preserveAspectRatio="none"><path d="M0 98 C38 85 52 93 80 67 S127 71 153 34 S193 27 220 4"/></svg></div>
+ <div className="login-shell">
+  <div className="login-brand"><Wallet size={40} strokeWidth={2.25}/><div className="login-brand-name">Meu Financeiro</div><div className="login-brand-tagline">SUAS FINANÇAS EM UM SÓ LUGAR</div></div>
+  <form className="login-card" onSubmit={registerMode?register:login}>
+   <h1>{registerMode?'Criar conta':'Acesse sua conta'}</h1>
+   <p>{registerMode?'Cadastre uma conta para ter seu próprio painel financeiro.':'Entre com seu e-mail e senha para gerenciar suas finanças.'}</p>
+   {registerMode&&<label>Como gostaria de ser chamado?<span className="login-input-wrap"><input type="text" autoComplete="given-name" maxLength={100} value={displayName} onChange={e=>setDisplayName(e.target.value)} placeholder="Seu nome" required/></span></label>}
+   <label>Email<span className="login-input-wrap"><Mail size={18} aria-hidden="true"/><input type="email" autoComplete="username" value={email} onChange={e=>setEmail(e.target.value)} placeholder="seu@email.com" required/></span></label>
+   <label>Senha<span className="login-input-wrap"><LockKeyhole size={18} aria-hidden="true"/><input type={showPassword?'text':'password'} autoComplete={registerMode?'new-password':'current-password'} minLength={registerMode?12:undefined} maxLength={128} value={password} onChange={e=>setPassword(e.target.value)} placeholder="Sua senha" required/><button type="button" className="password-visibility" aria-label={showPassword?'Ocultar senha':'Mostrar senha'} aria-pressed={showPassword} onClick={()=>setShowPassword(v=>!v)}>{showPassword?<EyeOff size={19}/>:<Eye size={19}/>}</button></span></label>
+   {registerMode&&<div className="login-password-note">Use uma senha com pelo menos 12 caracteres.</div>}
+   {authNotice&&<div className="auth-notice" role="status">{authNotice}</div>}
+   {error&&<div className="alert" role="alert">{error}</div>}
+   <button className="primary full login-submit" disabled={busy}>{busy?'Aguarde...':registerMode?'Criar conta':'Entrar'}<ArrowRight size={19} aria-hidden="true"/></button>
+   <div className="login-switch-row"><button type="button" className="auth-mode-switch" onClick={()=>{setRegisterMode(!registerMode);setShowPassword(false);setError('');setAuthNotice('');setPassword('');}}>{registerMode?'Já tenho uma conta — Entrar':'Criar uma nova conta'}</button></div>
+  </form>
+ </div>
+ </div>;
  return <div className="app"><aside className="sidebar"><div className="sidebar-header"><div className="logo"><Wallet size={23}/> Meu Financeiro</div><button type="button" className="mobile-menu-toggle" aria-label={menuOpen?'Fechar menu':'Abrir menu'} aria-controls="finance-navigation" aria-expanded={menuOpen} onClick={()=>setMenuOpen(open=>!open)}>{menuOpen?<X size={24}/>:<Menu size={24}/>}</button></div><nav id="finance-navigation" className={menuOpen?'mobile-open':''} aria-label="Navegação principal">{([['overview','▦ Visão geral'],['analytics','◫ Análises'],['transactions','▤ Lançamentos'],['reports','▤ Relatórios'],['import','▤ Importar Excel']] as const).map(([value,label])=><button key={value} type="button" className={page===value?'nav-active':''} aria-current={page===value?'page':undefined} onClick={()=>{setPage(value);setMenuOpen(false);}}>{label}</button>)}</nav><div className="side-foot">Controle financeiro pessoal<br/><small>Ambiente privado</small></div></aside><main className="main" id="main-content"><header className="top"><span className="eyebrow">PAINEL FINANCEIRO</span><button className="ghost" onClick={()=>{clearSession();setToken('');setDash(null);setRows([]);}}><LogOut size={17}/> Sair</button></header><div className="heading"><div><h1>{page==='overview'?'Visão geral':page==='analytics'?'Análises financeiras':page==='reports'?'Relatórios':page==='import'?'Importar Excel':'Lançamentos'}</h1><p>{page==='overview'?'Resumo financeiro do período selecionado.':page==='analytics'?'Explore categorias, comparativos e seu saldo acumulado.':page==='reports'?'Exporte receitas e despesas por mês ou por ano.':page==='import'?'Importe seus lançamentos em lote sem redigitar.':'Gerencie suas receitas e despesas em um espaço dedicado.'}</p></div><div className="controls"><input aria-label="Mês de referência" type="month" value={month} min="2000-01" max="2100-12" onChange={e=>setMonth(e.target.value)}/><button className="primary" onClick={()=>{setEditing(null);setForm(initial());}}><Plus size={18}/> Novo lançamento</button></div></div>{error&&<div className="alert">{error}</div>}{page==='overview'&&<><div className="welcome-header"><div><h2>Olá{profileName?', '+profileName.split(' ')[0]:''}!</h2><p>Confira como estão suas finanças.</p></div><button type="button" className="secondary" onClick={()=>void editProfile()}>{profileName?'Editar nome':'Definir meu nome'}</button></div><div className="section-kicker">RESUMO DO MÊS</div><div className="kpis"><div className="kpi"><div className="kpi-title"><span>Receitas do mês</span><TrendingUp size={20} className="green"/></div><strong>{brl(currentIncome)}</strong><small>Entradas no período selecionado</small></div><div className="kpi"><div className="kpi-title"><span>Despesas do mês</span><TrendingDown size={20} className="red"/></div><strong>{brl(currentExpense)}</strong><small>Saídas no período selecionado</small></div><div className="kpi"><div className="kpi-title"><span>Saldo do mês</span><Scale size={20} className="blue"/></div><strong className={currentIncome-currentExpense < 0 ? 'red' : 'blue'}>{brl(currentIncome-currentExpense)}</strong><small>Receitas menos despesas</small></div></div><section className="panel overview-next"><div className="panel-heading"><div><h2>Explore suas finanças</h2><p>Acesse relatórios detalhados ou gerencie seus lançamentos.</p></div></div><div className="overview-links"><button className="overview-link" onClick={()=>setPage('analytics')}><TrendingUp size={22}/><strong>Análises financeiras</strong><small>Comparativos, categorias e evolução do saldo</small></button><button className="overview-link" onClick={()=>setPage('transactions')}><Wallet size={22}/><strong>Meus lançamentos</strong><small>Consultar, cadastrar, editar e excluir</small></button></div></section></>}
 {page==='analytics'&&<AnalyticsPage rows={rows} series={series} year={Number(month.slice(0,4))} selectedMonth={month} />}
 {page==='import'&&<ImportPage api={api} onImported={load} />}
