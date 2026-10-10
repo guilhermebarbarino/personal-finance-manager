@@ -6,6 +6,7 @@ import { AnalyticsPage } from './AnalyticsPage';
 import { ReportsPage } from './ReportsPage';
 import { ImportPage } from './ImportPage';
 import { readSession, writeSession, clearSession } from './authSession';
+import { EmailVerificationPage } from './EmailVerificationPage';
 type Transaction = {id:string;description:string;amount:number;date:string;type:'income'|'expense';category:string;isPaid:boolean|null};
 type Entry = Omit<Transaction,'id'>;
 type Month = {month:number;income:number;expenses:number;balance:number};
@@ -25,6 +26,8 @@ function App(){
  const [newPassword,setNewPassword]=useState('');
  const [confirmPassword,setConfirmPassword]=useState('');
  const [resetToken,setResetToken]=useState(()=>new URLSearchParams(window.location.hash.replace(/^#/,'' )).get('reset-token')||'');
+ const [verificationToken,setVerificationToken]=useState(()=>new URLSearchParams(window.location.hash.slice(1)).get('verify-email-token')||'');
+ const [verificationNeeded,setVerificationNeeded]=useState(false);
  const [forgotMode,setForgotMode]=useState(false); const [resetSent,setResetSent]=useState(false);
  const [registerMode,setRegisterMode]=useState(false); const [authNotice,setAuthNotice]=useState('');
  const [month,setMonth]=useState(today().slice(0,7)); const [rows,setRows]=useState<Transaction[]>([]);
@@ -51,12 +54,18 @@ function App(){
  },[token]);
  const login=async(e:React.FormEvent)=>{e.preventDefault();setBusy(true);setError('');try{
   const r=await fetch(`${API}/api/auth/login`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password})});
-  if(!r.ok)throw new Error('Email ou senha inválidos.');const data=await r.json();writeSession(data.token,data.expiresAt);setToken(data.token);setPassword('');
+  if(!r.ok){const detail=await r.json().catch(()=>({}));setVerificationNeeded(detail.code==='email_verification_required');throw new Error(detail.error||'Email ou senha inválidos.');}const data=await r.json();writeSession(data.token,data.expiresAt);setToken(data.token);setPassword('');
  }catch(e){setError((e as Error).message);}finally{setBusy(false);}};
  const register=async(e:React.FormEvent)=>{e.preventDefault();setBusy(true);setError('');setAuthNotice('');try{
   const r=await fetch(`${API}/api/auth/register`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password,displayName})});
-  if(!r.ok){const detail=await r.json().catch(()=>({}));throw new Error(detail.error||'Não foi possível criar sua conta. Tente novamente.');}
-  setPassword('');setDisplayName('');setRegisterMode(false);setAuthNotice('Conta criada com sucesso. Faça login para continuar.');
+  if(!r.ok){const detail=await r.json().catch(()=>({}));throw new Error(detail.error||detail.detail||'Não foi possível criar sua conta. Tente novamente.');}
+  setPassword('');setDisplayName('');setRegisterMode(false);const result=await r.json();setVerificationNeeded(result.requiresEmailVerification===true);setAuthNotice(result.message||'Conta criada com sucesso. Faça login para continuar.');
+ }catch(e){setError((e as Error).message);}finally{setBusy(false);}};
+ const resendVerification=async()=>{setBusy(true);setError('');try{
+  if(!email.trim())throw new Error('Informe seu e-mail para solicitar a confirmação.');
+  const response=await fetch(`${API}/api/auth/resend-verification`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email})});
+  if(!response.ok)throw new Error('Não foi possível solicitar a confirmação agora. Tente novamente mais tarde.');
+  const result=await response.json();setAuthNotice(result.message);
  }catch(e){setError((e as Error).message);}finally{setBusy(false);}};
  const forgotPassword=async(e:React.FormEvent)=>{e.preventDefault();setBusy(true);setError('');setAuthNotice('');try{
   const response=await fetch(`${API}/api/auth/forgot-password`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email})});
@@ -90,6 +99,9 @@ function App(){
  const currentIncome=rows.filter(x=>x.type==='income').reduce((a,x)=>a+x.amount,0);
  const currentExpense=rows.filter(x=>x.type==='expense').reduce((a,x)=>a+x.amount,0);
  const series=dash?.months.map(m=>({...m,name:months[m.month-1]}))||[];
+ if(verificationToken)return <EmailVerificationPage apiUrl={API} token={verificationToken} onComplete={()=>{
+  setVerificationToken('');setVerificationNeeded(false);clearSession();setToken('');setPassword('');setAuthNotice('E-mail confirmado. Faça login para continuar.');
+ }} onBack={()=>{setVerificationToken('');setVerificationNeeded(true);clearSession();setToken('');setAuthNotice('Entre com seu e-mail ou solicite um novo link de confirmação.');}}/>;
  if(!token)return <div className="login-wrap"><form className={`login-card ${forgotMode||resetToken?"auth-recovery":""}`} onSubmit={resetToken?resetPassword:forgotMode?forgotPassword:registerMode?register:login}>
   <div className="logo login-logo"><Wallet size={22}/> Meu Financeiro</div>
   <h1>{resetToken?'Redefinir senha':forgotMode?'Recuperar senha':registerMode?'Criar conta':'Acesse sua conta'}</h1>
@@ -103,6 +115,7 @@ function App(){
   {resetSent&&forgotMode&&<div className="auth-notice" role="status">Se a conta existir, você receberá um e-mail com o link de recuperação.</div>}
   <button className="primary full" disabled={busy}>{busy?'Aguarde...':resetToken?'Salvar nova senha':forgotMode?'Enviar link':registerMode?'Criar conta':'Entrar'}</button>
   <div className="auth-links">
+   {verificationNeeded&&!forgotMode&&!resetToken&&!registerMode&&<button type="button" className="login-forgot-link" disabled={busy} onClick={()=>void resendVerification()}>Reenviar confirmação de e-mail</button>}
    {!registerMode&&!forgotMode&&!resetToken&&<button type="button" className="login-forgot-link" onClick={()=>{setForgotMode(true);setResetSent(false);setError('');}}>Redefinir senha</button>}
    <button type="button" className="auth-mode-switch" onClick={()=>{if(resetToken){window.history.replaceState(null,'',window.location.pathname+window.location.search);setResetToken('');}setRegisterMode(forgotMode||resetToken?false:!registerMode);setForgotMode(false);setResetSent(false);setShowPassword(false);setError('');setAuthNotice('');setPassword('');}}>{registerMode||forgotMode||resetToken?'Voltar para entrar':'Criar conta'}</button>
   </div>
@@ -116,3 +129,4 @@ function App(){
 }
 
 createRoot(document.getElementById('root')!).render(<React.StrictMode><App/></React.StrictMode>);
+

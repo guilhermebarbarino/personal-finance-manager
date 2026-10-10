@@ -23,6 +23,10 @@ services:
       ADMIN_EMAIL: ${ADMIN_EMAIL:?Set ADMIN_EMAIL}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Set ADMIN_PASSWORD}
       JWT_KEY: ${JWT_KEY:?Set JWT_KEY}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      RESEND_FROM_EMAIL: ${RESEND_FROM_EMAIL:-}
+      EMAIL_VERIFICATION_FRONTEND_URL: ${EMAIL_VERIFICATION_FRONTEND_URL:-}
+      PASSWORD_RESET_FRONTEND_URL: ${PASSWORD_RESET_FRONTEND_URL:-}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173}
     ports:
       - "127.0.0.1:8080:8080"
@@ -31,3 +35,4 @@ services:
         condition: service_healthy
 volumes:
   finance_pgdata:
+

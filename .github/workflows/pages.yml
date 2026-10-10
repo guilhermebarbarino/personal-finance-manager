@@ -18,6 +18,17 @@ jobs:
   backend:
     name: Backend - Build and Tests
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: finance_security_tests
+          POSTGRES_USER: finance_tests
+          POSTGRES_PASSWORD: ci-only-test-password
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U finance_tests -d finance_security_tests"
+          --health-interval 5s --health-timeout 5s --health-retries 15
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -29,10 +40,15 @@ jobs:
         run: |
           dotnet restore backend/src/Finance.Api/Finance.Api.csproj
           dotnet restore backend/tests/Finance.Tests/Finance.Tests.csproj
+          dotnet restore backend/tests/Finance.Api.Tests/Finance.Api.Tests.csproj
       - name: Build
         run: dotnet build backend/src/Finance.Api/Finance.Api.csproj --no-restore --configuration Release --warnaserror
       - name: Run xUnit tests and collect coverage
         run: dotnet test backend/tests/Finance.Tests/Finance.Tests.csproj --no-restore --configuration Release --logger "trx;LogFileName=backend-tests.trx" --collect:"XPlat Code Coverage"
+      - name: Test email verification against PostgreSQL
+        env:
+          FINANCE_TEST_DATABASE: Host=localhost;Port=5432;Database=finance_security_tests;Username=finance_tests;Password=ci-only-test-password
+        run: dotnet test backend/tests/Finance.Api.Tests/Finance.Api.Tests.csproj --no-restore --configuration Release --logger "trx;LogFileName=email-verification.trx"
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
@@ -40,6 +56,7 @@ jobs:
           name: backend-test-results
           path: |
             backend/tests/Finance.Tests/TestResults/**
+            backend/tests/Finance.Api.Tests/TestResults/**
           if-no-files-found: ignore
 
   frontend:
@@ -106,3 +123,4 @@ jobs:
       - name: Deploy Pages
         id: deployment
         uses: actions/deploy-pages@v4
+

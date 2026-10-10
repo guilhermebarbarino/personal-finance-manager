@@ -26,6 +26,7 @@ builder.Services.AddScoped<ITransactionRepository, EfTransactionRepository>();
 builder.Services.AddScoped<FinanceService>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddHttpClient();
+builder.Services.AddScoped<EmailVerificationService>();
 builder.Services.AddScoped<IPasswordHasher<AdminAccount>, PasswordHasher<AdminAccount>>();
 builder.Services.AddCors(o=>o.AddPolicy("frontend",p=>p.WithOrigins(corsOrigin).AllowAnyHeader().AllowAnyMethod()));
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(o=>{
@@ -35,8 +36,8 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJw
         var version = context.Principal?.FindFirstValue("session_version");
         if (!Guid.TryParse(idText,out var userId) || !Guid.TryParse(version,out var tokenVersion)) {context.Fail("Sessão inválida");return;}
         var db = context.HttpContext.RequestServices.GetRequiredService<FinanceDbContext>();
-        var current = await db.AdminAccounts.AsNoTracking().Where(x=>x.Id==userId).Select(x=>x.SessionVersion).SingleOrDefaultAsync();
-        if (current==Guid.Empty || current!=tokenVersion) context.Fail("Sessão revogada");
+        var current = await db.AdminAccounts.AsNoTracking().SingleOrDefaultAsync(x=>x.Id==userId);
+        if (current is null || current.SessionVersion!=tokenVersion || (current.RequiresEmailVerification && current.EmailVerifiedAt is null)) context.Fail("Sessão revogada");
     }};
     o.TokenValidationParameters = new TokenValidationParameters {
         ValidateIssuer=true, ValidIssuer="finance-api", ValidateAudience=true, ValidAudience="finance-web",
@@ -49,12 +50,19 @@ builder.Services.AddRateLimiter(o=>{
     o.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
     o.AddPolicy("login",ctx=>RateLimitPartition.GetFixedWindowLimiter(ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown", _=>new FixedWindowRateLimiterOptions { PermitLimit=5, Window=TimeSpan.FromMinutes(1), QueueLimit=0, AutoReplenishment=true }));
     o.AddPolicy("password-reset",ctx=>RateLimitPartition.GetFixedWindowLimiter(ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown", _=>new FixedWindowRateLimiterOptions { PermitLimit=3, Window=TimeSpan.FromMinutes(15), QueueLimit=0, AutoReplenishment=true }));
+    o.AddPolicy("email-confirmation",ctx=>RateLimitPartition.GetFixedWindowLimiter(ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown", _=>new FixedWindowRateLimiterOptions { PermitLimit=10, Window=TimeSpan.FromMinutes(15), QueueLimit=0, AutoReplenishment=true }));
     o.AddPolicy("register",ctx=>RateLimitPartition.GetFixedWindowLimiter(ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown", _=>new FixedWindowRateLimiterOptions { PermitLimit=3, Window=TimeSpan.FromHours(1), QueueLimit=0, AutoReplenishment=true }));
 });
 var app = builder.Build();
 using (var scope = app.Services.CreateScope()) {
     var db = scope.ServiceProvider.GetRequiredService<FinanceDbContext>();
     await db.Database.EnsureCreatedAsync();
+    // Stage 1 only: additive, repeatable upgrade for existing installations.
+    // Replace the overall EnsureCreated strategy in the separate migrations stage.
+    using var migrationStream = typeof(EmailVerificationService).Assembly.GetManifestResourceStream("EmailVerification.sql")
+        ?? throw new InvalidOperationException("Migração de verificação de e-mail ausente.");
+    using var migrationReader = new StreamReader(migrationStream);
+    await db.Database.ExecuteSqlRawAsync(await migrationReader.ReadToEndAsync());
     if (!await db.AdminAccounts.AnyAsync()) {
         var admin = new AdminAccount {Email=adminEmail.Trim().ToLowerInvariant()};
         admin.PasswordHash = scope.ServiceProvider.GetRequiredService<IPasswordHasher<AdminAccount>>().HashPassword(admin,adminPassword);
@@ -67,11 +75,13 @@ app.MapPost("/api/auth/login", async (LoginRequest login, FinanceDbContext db, I
     var account = await db.AdminAccounts.SingleOrDefaultAsync(x=>x.Email==login.Email.Trim().ToLower());
     if (account is null || hasher.VerifyHashedPassword(account,account.PasswordHash,login.Password) == PasswordVerificationResult.Failed)
         return Results.Unauthorized();
+    if (account.RequiresEmailVerification && account.EmailVerifiedAt is null)
+        return Results.Json(new {error="Confirme seu e-mail antes de entrar.",code="email_verification_required"},statusCode:403);
     var until=DateTime.UtcNow.AddHours(2);
     var jwt = new JwtSecurityToken("finance-api", "finance-web",new[] { new Claim(JwtRegisteredClaimNames.Sub,account.Id.ToString()),new Claim(ClaimTypes.Role,"admin"),new Claim("session_version",account.SessionVersion.ToString()) },expires:until,signingCredentials:new SigningCredentials(new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key)), SecurityAlgorithms.HmacSha256));
     return Results.Ok(new {token=new JwtSecurityTokenHandler().WriteToken(jwt),expiresAt=until});
 }).RequireRateLimiting("login");
-app.MapPost("/api/auth/register", async (RegisterRequest input, FinanceDbContext db, IPasswordHasher<AdminAccount> hasher, CancellationToken ct) => {
+app.MapPost("/api/auth/register", async (RegisterRequest input, FinanceDbContext db, IPasswordHasher<AdminAccount> hasher, EmailVerificationService verification, CancellationToken ct) => {
     var email = input.Email?.Trim().ToLowerInvariant();
     if (string.IsNullOrWhiteSpace(email) || email.Length > 320 ||
         !System.Net.Mail.MailAddress.TryCreate(email, out var mail) ||
@@ -83,7 +93,8 @@ app.MapPost("/api/auth/register", async (RegisterRequest input, FinanceDbContext
         return Results.Conflict(new {error="Já existe uma conta com este e-mail."});
     var displayName=input.DisplayName?.Trim();
     if (displayName?.Length > 100) return Results.BadRequest(new {error="O nome deve ter até 100 caracteres."});
-    var account = new AdminAccount { Email=email, DisplayName=string.IsNullOrWhiteSpace(displayName)?null:displayName };
+    if (!verification.IsConfigured) return Results.Problem("O cadastro está temporariamente indisponível. Tente novamente mais tarde.",statusCode:503);
+    var account = new AdminAccount { Email=email, RequiresEmailVerification=true, DisplayName=string.IsNullOrWhiteSpace(displayName)?null:displayName };
     account.PasswordHash=hasher.HashPassword(account,input.Password);
     db.AdminAccounts.Add(account);
     try {await db.SaveChangesAsync(ct);}
@@ -93,7 +104,10 @@ app.MapPost("/api/auth/register", async (RegisterRequest input, FinanceDbContext
     catch (DbUpdateException) {
         return Results.Problem("Não foi possível criar a conta devido a um erro no banco de dados.",statusCode:500);
     }
-    return Results.Created("/api/auth/login",new {message="Conta criada. Faça login para continuar."});
+    var sent = await verification.SendAsync(account,ct);
+    return Results.Created("/api/auth/login",new {message=sent
+        ? "Conta criada. Confirme seu e-mail pelo link enviado antes de entrar."
+        : "Conta criada, mas não foi possível enviar a confirmação. Solicite um novo link.",requiresEmailVerification=true});
 }).RequireRateLimiting("register");
 // Password recovery: uniform response prevents account enumeration.
 app.MapPost("/api/auth/forgot-password", async (ForgotPasswordRequest input, FinanceDbContext db, IHttpClientFactory clients, IConfiguration config, CancellationToken ct) => {
@@ -101,7 +115,7 @@ app.MapPost("/api/auth/forgot-password", async (ForgotPasswordRequest input, Fin
     var email = input.Email?.Trim().ToLowerInvariant();
     if (string.IsNullOrWhiteSpace(email) || email.Length > 320) return Results.Ok(message);
     var account = await db.AdminAccounts.SingleOrDefaultAsync(x=>x.Email==email,ct);
-    if (account is null) return Results.Ok(message);
+    if (account is null || (account.RequiresEmailVerification && account.EmailVerifiedAt is null)) return Results.Ok(message);
     var apiKey = config["RESEND_API_KEY"];
     var from = config["RESEND_FROM_EMAIL"];
     var baseUrl = config["PASSWORD_RESET_FRONTEND_URL"];
@@ -148,7 +162,7 @@ app.MapPost("/api/auth/reset-password", async (ResetPasswordRequest input, Finan
     if (used!=1) {await transaction.RollbackAsync(ct);return Results.BadRequest(new {error="Link inválido ou expirado."});}
     var reset=await db.PasswordResetTokens.AsNoTracking().SingleAsync(x=>x.TokenHash==hash,ct);
     var account=await db.AdminAccounts.SingleOrDefaultAsync(x=>x.Id==reset.UserId,ct);
-    if (account is null) {await transaction.RollbackAsync(ct);return Results.BadRequest(new {error="Link inválido ou expirado."});}
+    if (account is null || (account.RequiresEmailVerification && account.EmailVerifiedAt is null)) {await transaction.RollbackAsync(ct);return Results.BadRequest(new {error="Link inválido ou expirado."});}
     account.PasswordHash=hasher.HashPassword(account,input.NewPassword);
     account.SessionVersion=Guid.NewGuid(); // Invalidates all previously issued JWTs.
     await db.PasswordResetTokens.Where(x=>x.UserId==account.Id && x.UsedAt==null)
@@ -157,6 +171,20 @@ app.MapPost("/api/auth/reset-password", async (ResetPasswordRequest input, Finan
     await transaction.CommitAsync(ct);
     return Results.Ok(new {message="Senha redefinida. Faça login novamente."});
 }).RequireRateLimiting("password-reset");
+
+app.MapPost("/api/auth/resend-verification", async (ForgotPasswordRequest input, FinanceDbContext db, EmailVerificationService verification, CancellationToken ct) => {
+    var email = input.Email?.Trim().ToLowerInvariant();
+    var account = string.IsNullOrWhiteSpace(email) || email.Length>320 ? null
+        : await db.AdminAccounts.SingleOrDefaultAsync(x=>x.Email==email,ct);
+    if (account is not null && account.EmailVerifiedAt is null && verification.IsConfigured)
+        await verification.SendAsync(account,ct);
+    return Results.Ok(new {message="Se houver uma conta pendente, enviaremos um link de confirmação."});
+}).RequireRateLimiting("password-reset");
+app.MapPost("/api/auth/verify-email", async Task<IResult> (VerifyEmailRequest input, EmailVerificationService verification, CancellationToken ct) =>
+    await verification.ConfirmAsync(input.Token,ct)
+        ? Results.Ok(new {message="E-mail confirmado. Faça login para continuar."})
+        : Results.BadRequest(new {error="Link inválido ou expirado. Solicite uma nova confirmação."}))
+    .RequireRateLimiting("email-confirmation");
 
 var auth = app.MapGroup("/api").RequireAuthorization();
 auth.MapGet("/me", async (ClaimsPrincipal principal, FinanceDbContext db, CancellationToken ct) => {
@@ -215,3 +243,7 @@ record ChangePasswordRequest(string CurrentPassword,string NewPassword,string Co
 
 record ForgotPasswordRequest(string Email);
 record ResetPasswordRequest(string Token,string NewPassword);
+
+
+record VerifyEmailRequest(string Token);
+public partial class Program {}
