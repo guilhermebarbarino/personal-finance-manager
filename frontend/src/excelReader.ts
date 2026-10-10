@@ -48,10 +48,6 @@ async function zipEntries(buffer:ArrayBuffer):Promise<Map<string,string>> {
  }
  return entries;
 }
-function excelDate(n:number):string{
- const d=new Date(Date.UTC(1899,11,30)+Math.floor(n)*86400000);
- return d.toISOString().slice(0,10);
-}
 export async function parseXlsx(file:File):Promise<Cell[][]>{
  if(file.size>maxFile)throw new Error('O arquivo deve ter no máximo 5 MB.');
  const zipped=await zipEntries(await file.arrayBuffer());
