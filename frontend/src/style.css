@@ -293,3 +293,6 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{ou
     padding-inline: 12px;
   }
 }
+
+/* Center the login/register brand without changing the dashboard sidebar. */
+.login-card .login-logo{width:100%;justify-content:center;text-align:center;gap:11px}
