@@ -30,7 +30,7 @@ async function zipEntries(buffer:ArrayBuffer):Promise<Map<string,string>> {
   const name=decoder.decode(bytes.subarray(p+46,p+46+nameLength));
   const offset=view.getUint32(p+42,true);
   p+=46+nameLength+extraLength+commentLength;
-  if(name!=='xl/sharedStrings.xml'&&!/^xl\\/worksheets\\/sheet\\d+\\.xml$/.test(name))continue;
+  if(name!=='xl/sharedStrings.xml' && !/^xl\/worksheets\/sheet[0-9]+[.]xml$/.test(name))continue;
   if(uncompressed>10*1024*1024||compressed>5*1024*1024)throw new Error('Planilha muito grande.');
   if(offset+30>bytes.length||view.getUint32(offset,true)!==0x04034b50)throw new Error('Arquivo Excel corrompido.');
   const start=offset+30+view.getUint16(offset+26,true)+view.getUint16(offset+28,true);
@@ -55,7 +55,7 @@ function excelDate(n:number):string{
 export async function parseXlsx(file:File):Promise<Cell[][]>{
  if(file.size>maxFile)throw new Error('O arquivo deve ter no máximo 5 MB.');
  const zipped=await zipEntries(await file.arrayBuffer());
- const sheet=[...zipped.keys()].filter(x=>/^xl\/worksheets\/sheet\d+\.xml$/.test(x)).sort((a,b)=>Number(a.match(/\d+/g)?.at(-1))-Number(b.match(/\d+/g)?.at(-1)))[0];
+ const sheet=[...zipped.keys()].filter(x=>/^xl\/worksheets\/sheet\d+\.xml$/.test(x)).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}))[0];
  if(!sheet)throw new Error('Nenhuma planilha encontrada no arquivo Excel.');
  const strings=zipped.has('xl/sharedStrings.xml')?children(xml(zipped.get('xl/sharedStrings.xml')!).documentElement,'si').map(si=>children(si,'t').map(t=>t.textContent||'').join('')):[];
  const rows:Cell[][]=[];
