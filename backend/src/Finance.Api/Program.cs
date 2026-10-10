@@ -20,9 +20,11 @@ var corsOrigin = builder.Configuration["CORS_ORIGIN"] ?? "http://localhost:5173"
 builder.Services.AddDbContext<FinanceDbContext>(o=>o.UseNpgsql(connection));
 builder.Services.AddScoped<ITransactionRepository, EfTransactionRepository>();
 builder.Services.AddScoped<FinanceService>();
+builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IPasswordHasher<AdminAccount>, PasswordHasher<AdminAccount>>();
 builder.Services.AddCors(o=>o.AddPolicy("frontend",p=>p.WithOrigins(corsOrigin).AllowAnyHeader().AllowAnyMethod()));
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(o=>{
+    o.MapInboundClaims = false;
     o.TokenValidationParameters = new TokenValidationParameters {
         ValidateIssuer=true, ValidIssuer="finance-api", ValidateAudience=true, ValidAudience="finance-web",
         ValidateLifetime=true, ValidateIssuerSigningKey=true,
@@ -33,6 +35,7 @@ builder.Services.AddAuthorization();
 builder.Services.AddRateLimiter(o=>{
     o.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
     o.AddPolicy("login",ctx=>RateLimitPartition.GetFixedWindowLimiter(ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown", _=>new FixedWindowRateLimiterOptions { PermitLimit=5, Window=TimeSpan.FromMinutes(1), QueueLimit=0, AutoReplenishment=true }));
+    o.AddPolicy("register",ctx=>RateLimitPartition.GetFixedWindowLimiter(ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown", _=>new FixedWindowRateLimiterOptions { PermitLimit=3, Window=TimeSpan.FromHours(1), QueueLimit=0, AutoReplenishment=true }));
 });
 var app = builder.Build();
 using (var scope = app.Services.CreateScope()) {
@@ -54,6 +57,23 @@ app.MapPost("/api/auth/login", async (LoginRequest login, FinanceDbContext db, I
     var jwt = new JwtSecurityToken("finance-api", "finance-web",new[] { new Claim(JwtRegisteredClaimNames.Sub,account.Id.ToString()),new Claim(ClaimTypes.Role,"admin") },expires:until,signingCredentials:new SigningCredentials(new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key)), SecurityAlgorithms.HmacSha256));
     return Results.Ok(new {token=new JwtSecurityTokenHandler().WriteToken(jwt),expiresAt=until});
 }).RequireRateLimiting("login");
+app.MapPost("/api/auth/register", async (RegisterRequest input, FinanceDbContext db, IPasswordHasher<AdminAccount> hasher, CancellationToken ct) => {
+    var email = input.Email?.Trim().ToLowerInvariant();
+    if (string.IsNullOrWhiteSpace(email) || email.Length > 320 ||
+        !System.Net.Mail.MailAddress.TryCreate(email, out var mail) ||
+        !string.Equals(mail.Address, email, StringComparison.OrdinalIgnoreCase))
+        return Results.BadRequest(new {error="Informe um e-mail válido."});
+    if (string.IsNullOrEmpty(input.Password) || input.Password.Length < 12 || input.Password.Length > 128)
+        return Results.BadRequest(new {error="A senha deve conter entre 12 e 128 caracteres."});
+    if (await db.AdminAccounts.AnyAsync(x=>x.Email==email,ct))
+        return Results.Conflict(new {error="Já existe uma conta com este e-mail."});
+    var account = new AdminAccount { Email=email };
+    account.PasswordHash=hasher.HashPassword(account,input.Password);
+    db.AdminAccounts.Add(account);
+    try {await db.SaveChangesAsync(ct);}
+    catch (DbUpdateException) {return Results.Conflict(new {error="Não foi possível criar a conta. Confira se o e-mail já está em uso."});}
+    return Results.Created("/api/auth/login",new {message="Conta criada. Faça login para continuar."});
+}).RequireRateLimiting("register");
 var auth = app.MapGroup("/api").RequireAuthorization();
 auth.MapGet("/transactions", async (string? month, FinanceService svc, CancellationToken ct)=> {
     if (!DateOnly.TryParseExact((month ?? DateTime.UtcNow.ToString("yyyy-MM"))+"-01", "yyyy-MM-dd", out var date)) return Results.BadRequest(new {error="Formato de mês inválido. Use yyyy-MM."});
@@ -71,3 +91,4 @@ auth.MapGet("/dashboard",async(int? year,FinanceService svc,CancellationToken ct
 });
 app.Run();
 record LoginRequest(string Email, string Password);
+record RegisterRequest(string Email, string Password);
