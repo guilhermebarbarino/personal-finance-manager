@@ -102,7 +102,7 @@ app.MapPost("/api/auth/forgot-password", async (ForgotPasswordRequest input, Fin
     if (string.IsNullOrWhiteSpace(apiKey) || string.IsNullOrWhiteSpace(from) ||
         !Uri.TryCreate(baseUrl,UriKind.Absolute,out var baseUri) ||
         (baseUri.Scheme!="https" && !(baseUri.Host=="localhost" && baseUri.Scheme=="http")))
-        return Results.Problem("Serviço de recuperação indisponível.",statusCode:503);
+        return Results.Ok(message);
     // Do not log plaintext tokens or expose them in HTTP responses.
     var token = Convert.ToHexString(RandomNumberGenerator.GetBytes(32)).ToLowerInvariant();
     var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token))).ToLowerInvariant();
@@ -119,11 +119,11 @@ app.MapPost("/api/auth/forgot-password", async (ForgotPasswordRequest input, Fin
         using var response = await client.SendAsync(request,ct);
         if (!response.IsSuccessStatusCode) {
             db.PasswordResetTokens.Remove(reset); await db.SaveChangesAsync(ct);
-            return Results.Problem("Não foi possível enviar o e-mail.",statusCode:503);
+            return Results.Ok(message);
         }
     } catch (HttpRequestException) {
         db.PasswordResetTokens.Remove(reset); await db.SaveChangesAsync(ct);
-        return Results.Problem("Serviço de e-mail indisponível.",statusCode:503);
+        return Results.Ok(message);
     }
     return Results.Ok(message);
 }).RequireRateLimiting("password-reset");
