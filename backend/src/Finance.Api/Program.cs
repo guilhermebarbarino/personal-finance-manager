@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Npgsql;
 
 var builder = WebApplication.CreateBuilder(args);
 var connection = builder.Configuration.GetConnectionString("Default") ?? throw new InvalidOperationException("ConnectionStrings:Default obrigatório.");
@@ -86,7 +87,12 @@ app.MapPost("/api/auth/register", async (RegisterRequest input, FinanceDbContext
     account.PasswordHash=hasher.HashPassword(account,input.Password);
     db.AdminAccounts.Add(account);
     try {await db.SaveChangesAsync(ct);}
-    catch (DbUpdateException) {return Results.Conflict(new {error="Não foi possível criar a conta. Confira se o e-mail já está em uso."});}
+    catch (DbUpdateException e) when (e.InnerException is PostgresException {SqlState: PostgresErrorCodes.UniqueViolation}) {
+        return Results.Conflict(new {error="Já existe uma conta com este e-mail."});
+    }
+    catch (DbUpdateException) {
+        return Results.Problem("Não foi possível criar a conta devido a um erro no banco de dados.",statusCode:500);
+    }
     return Results.Created("/api/auth/login",new {message="Conta criada. Faça login para continuar."});
 }).RequireRateLimiting("register");
 // Password recovery: uniform response prevents account enumeration.

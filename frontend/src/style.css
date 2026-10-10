@@ -380,3 +380,47 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{ou
  .login-brand{margin-bottom:14px}
  .login-card h1{font-size:23px}
 }
+
+
+/* Stable authentication layout restoration (overrides experimental model 2). */
+html,body,#root{width:100%;max-width:100%}
+.login-wrap{
+  position:relative;display:grid;place-items:center;isolation:auto;
+  width:100%;max-width:100%;min-height:100vh;min-height:100dvh;
+  overflow-x:hidden;overflow-y:auto;padding:20px;
+  background:radial-gradient(circle at 80% 15%,#d2e9fb,#f3f7fc 55%);
+}
+.login-wrap .login-decor,.login-wrap .login-illustration{display:none}
+.login-wrap .login-card{
+  width:min(100%,420px);max-width:100%;margin:0 auto;
+  background:#fff;border:0;border-radius:16px;padding:32px;
+  box-shadow:0 15px 65px #0b2b511a;
+}
+.login-wrap .login-logo{display:flex;justify-content:center;align-items:center;gap:11px;font-size:19px}
+.login-wrap .login-card h1{text-align:left;margin-top:26px;font-size:26px}
+.login-wrap .login-card p{text-align:left;font-size:14px;line-height:1.6;margin:9px 0 23px}
+.login-wrap .login-card label{display:flex;flex-direction:column;gap:7px;margin:15px 0;font-size:13px}
+.login-wrap .login-card label>input,.login-wrap .auth-password-field>input{
+  width:100%;height:auto;min-height:48px;font-size:16px;
+  padding:11px 14px;border-radius:8px;border:1px solid #dfe5ec;
+}
+.login-wrap .auth-password-field{display:flex;position:relative;width:100%;align-items:center}
+.login-wrap .auth-password-field>input{padding-right:52px}
+.login-wrap .auth-password-field>button{
+  display:grid;place-items:center;position:absolute;right:3px;top:50%;
+  transform:translateY(-50%);min-width:44px;min-height:44px;
+  color:#65758a;background:transparent;border-radius:8px;
+}
+.login-wrap .primary.full{margin-top:12px;width:100%;min-height:48px;border-radius:8px;background:#247bb5;box-shadow:none}
+.login-wrap .login-forgot-link{display:block;width:max-content;max-width:100%;margin:10px auto 0;min-height:44px;padding:10px 4px}
+.login-wrap .auth-mode-switch{display:block;margin:5px auto 0;min-height:44px;padding:11px 4px}
+.login-wrap .login-password-note{font-size:12px;color:#718094}
+@media(max-width:760px){
+ .login-wrap{display:grid;place-items:center;width:100%;padding:18px 14px;overflow-x:hidden}
+ .login-wrap .login-card{width:min(100%,420px);padding:26px 22px}
+ .login-wrap .login-card h1{margin-top:25px;font-size:25px}
+}
+@media(max-width:380px){
+ .login-wrap{padding:14px 12px}
+ .login-wrap .login-card{padding:23px 19px}
+}
