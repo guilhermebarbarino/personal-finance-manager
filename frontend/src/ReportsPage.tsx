@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { makeExcelReport } from './excelExport';
 
 type Transaction = {
   id: string; description: string; amount: number; date: string;
@@ -8,7 +9,7 @@ type Api = (path: string) => Promise<unknown>;
 type Props = { selectedMonth: string; api: Api };
 type Period = 'month' | 'year';
 type Kind = 'all' | 'income' | 'expense';
-type Format = 'pdf' | 'txt';
+type Format = 'pdf' | 'txt' | 'xlsx';
 
 const money = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const status = (t: Transaction) => t.type === 'income' ? '—' : t.isPaid === true ? 'Paga' : t.isPaid === false ? 'Não paga' : 'Não informado';
@@ -79,7 +80,17 @@ export function ReportsPage({ selectedMonth, api }: Props) {
         .sort((a, b) => a.date.localeCompare(b.date) || a.description.localeCompare(b.description));
       const label = description(period, month, year);
       const filename = `financas-${period === 'month' ? month : year}-${kind}`;
-      if (format === 'txt') {
+      if (format === 'xlsx') {
+        const blob = makeExcelReport(rows, label);
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename + '.xlsx';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      } else if (format === 'txt') {
         const blob = new Blob(['\uFEFF', reportText(rows, label, kind)], { type: 'text/plain;charset=utf-8' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
@@ -112,7 +123,7 @@ export function ReportsPage({ selectedMonth, api }: Props) {
         : <div className="field"><label htmlFor="report-year">Ano de referência</label><input id="report-year" type="number" min="2000" max="2100" value={year} onChange={e => setYear(e.target.value)}/></div>}
       <div className="field"><label htmlFor="report-kind">Lançamentos</label><select id="report-kind" value={kind} onChange={e => setKind(e.target.value as Kind)}><option value="all">Receitas e despesas</option><option value="income">Somente receitas</option><option value="expense">Somente despesas</option></select></div>
     </div>
-    <div className="report-actions"><button className="primary" disabled={busy || (period === 'year' && (+year < 2000 || +year > 2100))} onClick={() => void download('pdf')}>Salvar como PDF</button><button className="secondary" disabled={busy} onClick={() => void download('txt')}>Baixar TXT</button></div>
+    <div className="report-actions"><button className="primary" disabled={busy || (period === 'year' && (+year < 2000 || +year > 2100))} onClick={() => void download('pdf')}>Salvar como PDF</button><button className="secondary" disabled={busy} onClick={() => void download('txt')}>Baixar TXT</button><button className="secondary" disabled={busy} onClick={() => void download('xlsx')}>Baixar Excel (.xlsx)</button></div>
     <p className="report-hint">PDF: abre a impressão do navegador. Escolha “Salvar como PDF”. Os dados são obtidos da sua API autenticada e não são enviados a um serviço externo.</p>
     {busy && <p role="status">Preparando relatório...</p>}
     {error && <div role="alert" className="alert">{error}</div>}
