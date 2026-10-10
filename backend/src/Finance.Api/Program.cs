@@ -8,6 +8,7 @@ using System.Threading.RateLimiting;
 using Finance.Application;
 using Finance.Infrastructure;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -27,8 +28,16 @@ builder.Services.AddScoped<FinanceService>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddHttpClient();
 builder.Services.AddScoped<EmailVerificationService>();
+builder.Services.AddSingleton(new AccountRateLimiter(key));
 builder.Services.AddScoped<IPasswordHasher<AdminAccount>, PasswordHasher<AdminAccount>>();
 builder.Services.AddCors(o=>o.AddPolicy("frontend",p=>p.WithOrigins(corsOrigin).AllowAnyHeader().AllowAnyMethod()));
+builder.Services.Configure<ForwardedHeadersOptions>(o=>{
+    // Render terminates TLS at its proxy. Trust only the nearest forwarded hop.
+    o.ForwardedHeaders=ForwardedHeaders.XForwardedFor|ForwardedHeaders.XForwardedProto;
+    o.ForwardLimit=1;
+    o.KnownNetworks.Clear();
+    o.KnownProxies.Clear();
+});
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(o=>{
     o.MapInboundClaims = false;
     o.Events = new JwtBearerEvents {OnTokenValidated = async context => {
@@ -48,10 +57,16 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJw
 builder.Services.AddAuthorization();
 builder.Services.AddRateLimiter(o=>{
     o.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-    o.AddPolicy("login",ctx=>RateLimitPartition.GetFixedWindowLimiter(ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown", _=>new FixedWindowRateLimiterOptions { PermitLimit=5, Window=TimeSpan.FromMinutes(1), QueueLimit=0, AutoReplenishment=true }));
-    o.AddPolicy("password-reset",ctx=>RateLimitPartition.GetFixedWindowLimiter(ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown", _=>new FixedWindowRateLimiterOptions { PermitLimit=3, Window=TimeSpan.FromMinutes(15), QueueLimit=0, AutoReplenishment=true }));
-    o.AddPolicy("email-confirmation",ctx=>RateLimitPartition.GetFixedWindowLimiter(ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown", _=>new FixedWindowRateLimiterOptions { PermitLimit=10, Window=TimeSpan.FromMinutes(15), QueueLimit=0, AutoReplenishment=true }));
-    o.AddPolicy("register",ctx=>RateLimitPartition.GetFixedWindowLimiter(ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown", _=>new FixedWindowRateLimiterOptions { PermitLimit=3, Window=TimeSpan.FromHours(1), QueueLimit=0, AutoReplenishment=true }));
+    o.OnRejected=async (context,ct)=>{
+        RateLimitResponse.SetRetryAfter(context.HttpContext.Response,context.Lease);
+        await context.HttpContext.Response.WriteAsJsonAsync(
+            new RateLimitError(RateLimitResponse.Message),
+            cancellationToken:ct);
+    };
+    o.AddPolicy("login",ctx=>RateLimitPartition.GetSlidingWindowLimiter(ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown", _=>new SlidingWindowRateLimiterOptions { PermitLimit=5, Window=TimeSpan.FromMinutes(1), SegmentsPerWindow=6, QueueLimit=0, AutoReplenishment=true }));
+    o.AddPolicy("password-reset",ctx=>RateLimitPartition.GetSlidingWindowLimiter(ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown", _=>new SlidingWindowRateLimiterOptions { PermitLimit=3, Window=TimeSpan.FromMinutes(15), SegmentsPerWindow=15, QueueLimit=0, AutoReplenishment=true }));
+    o.AddPolicy("email-confirmation",ctx=>RateLimitPartition.GetSlidingWindowLimiter(ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown", _=>new SlidingWindowRateLimiterOptions { PermitLimit=10, Window=TimeSpan.FromMinutes(15), SegmentsPerWindow=15, QueueLimit=0, AutoReplenishment=true }));
+    o.AddPolicy("register",ctx=>RateLimitPartition.GetSlidingWindowLimiter(ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown", _=>new SlidingWindowRateLimiterOptions { PermitLimit=3, Window=TimeSpan.FromHours(1), SegmentsPerWindow=12, QueueLimit=0, AutoReplenishment=true }));
 });
 var app = builder.Build();
 using (var scope = app.Services.CreateScope()) {
@@ -69,7 +84,7 @@ using (var scope = app.Services.CreateScope()) {
         db.AdminAccounts.Add(admin); await db.SaveChangesAsync();
     }
 }
-app.UseCors("frontend"); app.UseRateLimiter(); app.UseAuthentication(); app.UseAuthorization();
+app.UseForwardedHeaders(); app.UseCors("frontend"); app.UseRateLimiter(); app.UseAuthentication(); app.UseAuthorization();
 app.MapGet("/health",()=>Results.Ok(new {status="ok"}));
 app.MapPost("/api/auth/login", async (LoginRequest login, FinanceDbContext db, IPasswordHasher<AdminAccount> hasher) => {
     var account = await db.AdminAccounts.SingleOrDefaultAsync(x=>x.Email==login.Email.Trim().ToLower());
@@ -80,7 +95,8 @@ app.MapPost("/api/auth/login", async (LoginRequest login, FinanceDbContext db, I
     var until=DateTime.UtcNow.AddHours(2);
     var jwt = new JwtSecurityToken("finance-api", "finance-web",new[] { new Claim(JwtRegisteredClaimNames.Sub,account.Id.ToString()),new Claim(ClaimTypes.Role,"admin"),new Claim("session_version",account.SessionVersion.ToString()) },expires:until,signingCredentials:new SigningCredentials(new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key)), SecurityAlgorithms.HmacSha256));
     return Results.Ok(new {token=new JwtSecurityTokenHandler().WriteToken(jwt),expiresAt=until});
-}).RequireRateLimiting("login");
+}).RequireRateLimiting("login")
+  .RequireAccountRateLimit("login-account",ctx=>ctx.Arguments.OfType<LoginRequest>().FirstOrDefault()?.Email);
 app.MapPost("/api/auth/register", async (RegisterRequest input, FinanceDbContext db, IPasswordHasher<AdminAccount> hasher, EmailVerificationService verification, CancellationToken ct) => {
     var email = input.Email?.Trim().ToLowerInvariant();
     if (string.IsNullOrWhiteSpace(email) || email.Length > 320 ||
@@ -108,7 +124,8 @@ app.MapPost("/api/auth/register", async (RegisterRequest input, FinanceDbContext
     return Results.Created("/api/auth/login",new {message=sent
         ? "Conta criada. Confirme seu e-mail pelo link enviado antes de entrar."
         : "Conta criada, mas não foi possível enviar a confirmação. Solicite um novo link.",requiresEmailVerification=true});
-}).RequireRateLimiting("register");
+}).RequireRateLimiting("register")
+  .RequireAccountRateLimit("registration-account",ctx=>ctx.Arguments.OfType<RegisterRequest>().FirstOrDefault()?.Email);
 // Password recovery: uniform response prevents account enumeration.
 app.MapPost("/api/auth/forgot-password", async (ForgotPasswordRequest input, FinanceDbContext db, IHttpClientFactory clients, IConfiguration config, CancellationToken ct) => {
     var message = new {message="Se existir uma conta com esse e-mail, enviaremos um link para redefinir a senha."};
@@ -146,7 +163,8 @@ app.MapPost("/api/auth/forgot-password", async (ForgotPasswordRequest input, Fin
         return Results.Ok(message);
     }
     return Results.Ok(message);
-}).RequireRateLimiting("password-reset");
+}).RequireRateLimiting("password-reset")
+  .RequireAccountRateLimit("recovery-account",ctx=>ctx.Arguments.OfType<ForgotPasswordRequest>().FirstOrDefault()?.Email);
 
 app.MapPost("/api/auth/reset-password", async (ResetPasswordRequest input, FinanceDbContext db, IPasswordHasher<AdminAccount> hasher, CancellationToken ct) => {
     if (string.IsNullOrEmpty(input.NewPassword) || input.NewPassword.Length<12 || input.NewPassword.Length>128)
@@ -170,7 +188,8 @@ app.MapPost("/api/auth/reset-password", async (ResetPasswordRequest input, Finan
     await db.SaveChangesAsync(ct);
     await transaction.CommitAsync(ct);
     return Results.Ok(new {message="Senha redefinida. Faça login novamente."});
-}).RequireRateLimiting("password-reset");
+}).RequireRateLimiting("password-reset")
+  .RequireAccountRateLimit("reset-token",ctx=>ctx.Arguments.OfType<ResetPasswordRequest>().FirstOrDefault()?.Token);
 
 app.MapPost("/api/auth/resend-verification", async (ForgotPasswordRequest input, FinanceDbContext db, EmailVerificationService verification, CancellationToken ct) => {
     var email = input.Email?.Trim().ToLowerInvariant();
@@ -179,12 +198,14 @@ app.MapPost("/api/auth/resend-verification", async (ForgotPasswordRequest input,
     if (account is not null && account.EmailVerifiedAt is null && verification.IsConfigured)
         await verification.SendAsync(account,ct);
     return Results.Ok(new {message="Se houver uma conta pendente, enviaremos um link de confirmação."});
-}).RequireRateLimiting("password-reset");
+}).RequireRateLimiting("password-reset")
+  .RequireAccountRateLimit("recovery-account",ctx=>ctx.Arguments.OfType<ForgotPasswordRequest>().FirstOrDefault()?.Email);
 app.MapPost("/api/auth/verify-email", async Task<IResult> (VerifyEmailRequest input, EmailVerificationService verification, CancellationToken ct) =>
     await verification.ConfirmAsync(input.Token,ct)
         ? Results.Ok(new {message="E-mail confirmado. Faça login para continuar."})
         : Results.BadRequest(new {error="Link inválido ou expirado. Solicite uma nova confirmação."}))
-    .RequireRateLimiting("email-confirmation");
+    .RequireRateLimiting("email-confirmation")
+    .RequireAccountRateLimit("verification-token",ctx=>ctx.Arguments.OfType<VerifyEmailRequest>().FirstOrDefault()?.Token);
 
 var auth = app.MapGroup("/api").RequireAuthorization();
 auth.MapGet("/me", async (ClaimsPrincipal principal, FinanceDbContext db, CancellationToken ct) => {
@@ -220,7 +241,8 @@ auth.MapPost("/me/change-password", async (ChangePasswordRequest input, ClaimsPr
     account.SessionVersion=Guid.NewGuid();
     await db.SaveChangesAsync(ct);
     return Results.Ok(new {message="Senha alterada. Entre novamente."});
-}).RequireRateLimiting("password-reset");
+}).RequireRateLimiting("password-reset")
+  .RequireAccountRateLimit("password-change-account",ctx=>ctx.HttpContext.User.FindFirstValue(JwtRegisteredClaimNames.Sub));
 auth.MapGet("/transactions", async (string? month, FinanceService svc, CancellationToken ct)=> {
     if (!DateOnly.TryParseExact((month ?? DateTime.UtcNow.ToString("yyyy-MM"))+"-01", "yyyy-MM-dd", out var date)) return Results.BadRequest(new {error="Formato de mês inválido. Use yyyy-MM."});
     try { return Results.Ok(await svc.ListAsync(date.Year,date.Month,ct)); } catch (ArgumentException e) {return Results.BadRequest(new {error=e.Message});}
