@@ -20,7 +20,6 @@ public sealed class TransactionTests
     }
 
     [Theory]
-    [InlineData(0)]
     [InlineData(-10)]
     [InlineData(1.001)]
     [InlineData(1000000000000)]
@@ -28,6 +27,21 @@ public sealed class TransactionTests
     {
         Assert.Throws<ArgumentException>(() =>
             new Transaction("Teste", (decimal)value, ReferenceDate, TransactionType.Expense, "Outros"));
+    }
+
+    [Fact]
+    public void Constructor_AcceptsZeroAmount()
+    {
+        var transaction = new Transaction("Sem valor", 0m, ReferenceDate, TransactionType.Expense, "Casa");
+        Assert.Equal(0m, transaction.Amount);
+    }
+
+    [Fact]
+    public void Update_AcceptsZeroAmount()
+    {
+        var transaction = new Transaction("Anterior", 20m, ReferenceDate, TransactionType.Expense, "Casa");
+        transaction.Update("Novo", 0m, ReferenceDate, TransactionType.Expense, "Casa");
+        Assert.Equal(0m, transaction.Amount);
     }
 
     [Theory]
@@ -75,7 +89,7 @@ public sealed class TransactionTests
         var transaction = new Transaction("Antigo", 20m, ReferenceDate, TransactionType.Expense, "Casa");
 
         Assert.Throws<ArgumentException>(() =>
-            transaction.Update("Novo", 0m, ReferenceDate.AddDays(1), TransactionType.Income, "Trabalho"));
+            transaction.Update("Novo", -1m, ReferenceDate.AddDays(1), TransactionType.Income, "Trabalho"));
 
         Assert.Equal("Antigo", transaction.Description);
         Assert.Equal(20m, transaction.Amount);
