@@ -28,7 +28,7 @@ public sealed class FinanceService(ITransactionRepository repository)
     public async Task<TransactionOutput?> UpdateAsync(Guid id, TransactionInput input, CancellationToken ct)
     {
         var t = await repository.GetByIdAsync(id, ct); if (t is null) return null;
-        t.Update(input.Description, input.Amount, input.Date, ParseType(input.Type), input.Category, input.IsPaid);
+        t.Update(input.Description, input.Amount ?? 0m, input.Date, ParseType(input.Type), input.Category, input.IsPaid);
         await repository.SaveAsync(ct); return Map(t);
     }
     public async Task<bool> DeleteAsync(Guid id, CancellationToken ct)
