@@ -22,6 +22,44 @@ public sealed class FinanceServiceTests
     }
 
     [Fact]
+    public async Task CreateAsync_NullAmount_PersistsZero()
+    {
+        var repository = new InMemoryRepository();
+        var service = new FinanceService(repository);
+        var input = new TransactionInput("Sem valor", null, ReferenceDate, "expense", "Casa");
+
+        var result = await service.CreateAsync(input, CancellationToken.None);
+
+        Assert.Equal(0m, result.Amount);
+        Assert.Single(repository.Items);
+        Assert.Equal(1, repository.SaveCount);
+    }
+
+    [Fact]
+    public async Task CreateAsync_ZeroAmount_PersistsZero()
+    {
+        var repository = new InMemoryRepository();
+        var service = new FinanceService(repository);
+        var input = new TransactionInput("Valor zero", 0m, ReferenceDate, "expense", "Casa");
+
+        var result = await service.CreateAsync(input, CancellationToken.None);
+
+        Assert.Equal(0m, result.Amount);
+        Assert.Single(repository.Items);
+        Assert.Equal(1, repository.SaveCount);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_NullAmount_PersistsZero()
+    {
+        var item = new Transaction("Anterior", 10m, ReferenceDate, TransactionType.Expense, "Casa");
+        var service = new FinanceService(new InMemoryRepository(item));
+        var result = await service.UpdateAsync(item.Id, new("Atualizado", null, ReferenceDate, "expense", "Casa"), CancellationToken.None);
+        Assert.NotNull(result);
+        Assert.Equal(0m, result.Amount);
+    }
+
+    [Fact]
     public async Task CreateAsync_RejectsUnknownTypeWithoutSaving()
     {
         var repository = new InMemoryRepository();

@@ -23,8 +23,8 @@ public sealed class Transaction
     {
         if (string.IsNullOrWhiteSpace(description) || description.Trim().Length > 150)
             throw new ArgumentException("Descrição deve ter entre 1 e 150 caracteres.");
-        if (amount <= 0 || amount > 999999999999.99m || decimal.Round(amount, 2) != amount)
-            throw new ArgumentException("Valor deve ser positivo e ter no máximo duas casas decimais.");
+        if (amount < 0 || amount > 999999999999.99m || decimal.Round(amount, 2) != amount)
+            throw new ArgumentException("Valor não pode ser negativo e deve ter no máximo duas casas decimais.");
         if (!Enum.IsDefined(type)) throw new ArgumentException("Tipo inválido.");
         if (string.IsNullOrWhiteSpace(category) || category.Trim().Length > 60)
             throw new ArgumentException("Categoria deve ter entre 1 e 60 caracteres.");

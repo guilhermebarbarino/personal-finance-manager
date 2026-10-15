@@ -1,6 +1,6 @@
 using Finance.Domain;
 namespace Finance.Application;
-public record TransactionInput(string Description, decimal Amount, DateOnly Date, string Type, string Category, bool? IsPaid = null);
+public record TransactionInput(string Description, decimal? Amount, DateOnly Date, string Type, string Category, bool? IsPaid = null);
 public record TransactionOutput(Guid Id, string Description, decimal Amount, DateOnly Date, string Type, string Category, bool? IsPaid);
 public record MonthlySummary(int Month, decimal Income, decimal Expenses, decimal Balance);
 public record DashboardOutput(int Year, decimal Income, decimal Expenses, decimal Balance, IReadOnlyList<MonthlySummary> Months);
@@ -22,13 +22,13 @@ public sealed class FinanceService(ITransactionRepository repository)
     }
     public async Task<TransactionOutput> CreateAsync(TransactionInput input, CancellationToken ct)
     {
-        var t = new Transaction(input.Description, input.Amount, input.Date, ParseType(input.Type), input.Category, input.IsPaid);
+        var t = new Transaction(input.Description, input.Amount ?? 0m, input.Date, ParseType(input.Type), input.Category, input.IsPaid);
         await repository.AddAsync(t, ct); await repository.SaveAsync(ct); return Map(t);
     }
     public async Task<TransactionOutput?> UpdateAsync(Guid id, TransactionInput input, CancellationToken ct)
     {
         var t = await repository.GetByIdAsync(id, ct); if (t is null) return null;
-        t.Update(input.Description, input.Amount, input.Date, ParseType(input.Type), input.Category, input.IsPaid);
+        t.Update(input.Description, input.Amount ?? 0m, input.Date, ParseType(input.Type), input.Category, input.IsPaid);
         await repository.SaveAsync(ct); return Map(t);
     }
     public async Task<bool> DeleteAsync(Guid id, CancellationToken ct)
