@@ -468,3 +468,11 @@ html,body,#root{width:100%;max-width:100%}
 .sidebar nav .sidebar-password-action{display:flex;align-items:center;width:100%;margin-top:10px;padding:13px 15px;text-align:left;background:transparent;color:#c3d4e6;border:1px solid #38506a;border-radius:9px;font-size:13px;font-weight:700}
 .sidebar nav .sidebar-password-action:hover{background:#263953;color:#fff}
 @media(max-width:760px){.sidebar nav .sidebar-password-action{margin-top:8px;min-height:44px;justify-content:flex-start;font-size:14px;padding:11px 14px}}
+
+/* Transaction payment filter */
+.transaction-filters{display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-wrap:wrap}
+.transaction-filters label{font-size:12px;color:#65758a;font-weight:600}
+.transaction-filters select{border:1px solid #dfe5ec;border-radius:8px;background:#fff;color:#253246;padding:8px 12px;min-width:125px}
+.transaction-filters select:focus{outline:none;border-color:#438fcb;box-shadow:0 0 0 3px #badcf15e}
+.transaction-filters span{font-size:12px;background:#f2f5f9;padding:6px 9px;border-radius:6px;color:#8390a0}
+@media(max-width:760px){.transaction-filters{justify-content:flex-start;width:100%}.transaction-filters select{flex:1;min-width:0}}
